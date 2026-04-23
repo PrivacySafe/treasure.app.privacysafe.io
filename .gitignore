@@ -1,0 +1,33 @@
+.DS_Store
+node_modules
+/dist
+/app
+/test-user*.json
+/test-runner
+/test-data
+/temp
+/setup-w3n.bundle.js
+
+# local env files
+.env.local
+.env.*.local
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+.vscode
+.zed
+.history
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Tmp files
+.~*
+pnpm-workspace.yaml
