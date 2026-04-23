@@ -1,5 +1,6 @@
 {
   "name": "Treasure",
   "appDomain": "treasure.app.privacysafe.io",
-  "version": "0.0.1"
+  "version": "0.0.1",
+  "description": "The app for storing passwords securely."
 }
