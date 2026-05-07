@@ -24,8 +24,8 @@
     NOTIFICATIONS_KEY,
     type NotificationsPlugin,
   } from '@v1nt1248/3nclient-lib/plugins';
+  import type { TreasureGroup, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
   import { useRecordStore } from '@/common/stores/record.store';
-  import type { TreasureGroup, TreasureRecord } from '@types';
   import EditRecordDialog from '@/desktop/components/edit-record-dialog.vue';
   import EditGroupDialog from '@/desktop/components/edit-group-dialog.vue';
   import TreasureGroups from '@/desktop/components/groups.vue';
@@ -38,7 +38,7 @@
 
   const recordStore = useRecordStore();
   const { sortedGroups, records, recordsByGroups } = storeToRefs(recordStore);
-  const { upsertGroup, deleteGroup, updateRecordList, addRecord, updateRecord, removeRecord } = recordStore;
+  const { upsertGroup, deleteGroup, updateRecordList, addRecord, updateRecord, removeRecord, addRecordToRecent } = recordStore;
 
   const searchText = ref('');
   const selectedGroup = ref('');
@@ -46,17 +46,22 @@
   const processedSearchText = computed(() => searchText.value.toLowerCase());
 
   const filteredRecords = computed(() => {
-    return (!selectedGroup.value ? records.value : recordsByGroups.value[selectedGroup.value] || []).filter(r => {
-      const { resource, name = '', username } = r;
+    if (!selectedGroup.value) {
+      return records.value;
+    }
+
+    return (recordsByGroups.value[selectedGroup.value] || []).filter(r => {
+      const { resource, name = '', username = '' } = r;
       const processedResource = resource.toLowerCase();
       const processedName = name.toLowerCase();
       const processedUsername = username.toLowerCase();
 
-      return (
-        processedResource.includes(processedSearchText.value) ||
-        processedName.includes(processedSearchText.value) ||
-        processedUsername.includes(processedSearchText.value)
-      );
+      const isResourceCompliant = processedResource.includes(processedSearchText.value);
+      const isNameCompliant =
+        !processedName || (!!processedName && processedName.includes(processedSearchText.value));
+      const isUsernameCompliant =
+        !processedUsername || (!!processedUsername && processedUsername.includes(username));
+      return isResourceCompliant || isNameCompliant || isUsernameCompliant;
     });
   });
 
@@ -79,10 +84,13 @@
         content: t('list.notifications.success.saving'),
       });
     } catch (err) {
-      console.error(`Error saving '${data!.name || data!.resource}' record. `, err);
+      console.error(`Error saving '${(data as TreasurePasswordRecord)!.name || data!.resource}' record. `, err);
       $createNotice({
         type: 'error',
-        content: t('list.notifications.error.saving', { entity: 'record', name: data!.name || data!.resource }),
+        content: t('list.notifications.error.saving', {
+          entity: 'record',
+          name: (data as TreasurePasswordRecord)!.name || data!.resource,
+        }),
       });
     }
   }
@@ -91,16 +99,23 @@
     try {
       await removeRecord(data.id);
     } catch (err) {
-      console.error(`Error deleting '${data!.name || data!.resource}' record. `, err);
+      console.error(`Error deleting '${(data as TreasurePasswordRecord)!.name || data!.resource}' record. `, err);
       $createNotice({
         type: 'error',
-        content: t('list.notifications.error.deleting', { entity: 'record', name: data!.name || data!.resource }),
+        content: t('list.notifications.error.deleting', {
+          entity: 'record',
+          name: (data as TreasurePasswordRecord)!.name || data!.resource,
+        }),
       });
     }
   }
 
   async function openEditRecordDialog(recordId?: string) {
     const record = recordId ? records.value.find(r => r.id === recordId) : null;
+    if (record) {
+      addRecordToRecent(record.id);
+    }
+
     const recordDialogRes = await dialog.$openDialog<TreasureRecord, 'delete'>(EditRecordDialog, {
       ...(record && { record }),
       ...(!record && { selectedGroup: selectedGroup.value }),
@@ -201,7 +216,7 @@
         :selected-group="selectedGroup"
         @create:treasure="openEditRecordDialog"
         @select="selectGroup"
-        @edit:group="id => openEditGroupDialog(id)"
+        @edit:group="(id: string) => openEditGroupDialog(id)"
       />
     </aside>
 
@@ -213,8 +228,9 @@
     </header>
     <main>
       <treasures-table
+        :selected-group="selectedGroup"
         :records="filteredRecords"
-        @edit="r => openEditRecordDialog(r.id)"
+        @edit="(r: TreasureRecord) => openEditRecordDialog(r.id)"
         @set:favorite="setFavorite"
       />
     </main>

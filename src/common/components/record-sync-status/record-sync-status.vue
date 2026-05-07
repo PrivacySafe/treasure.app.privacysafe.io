@@ -20,7 +20,7 @@
   import { styleByStatus } from './constants';
   import { useAppStore } from '@/common/stores/app.store';
   import { useRecordStore } from '@/common/stores/record.store';
-  import type { SyncType, TreasureRecord } from '@types';
+  import type { SyncType, TreasureRecord } from '@shared/@types';
 
   const props = defineProps<{
     record: TreasureRecord;

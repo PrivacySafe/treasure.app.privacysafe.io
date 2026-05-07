@@ -2,7 +2,6 @@ import { resolve } from 'node:path';
 import { type UserConfig, defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import vueDevTools from 'vite-plugin-vue-devtools';
-// import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 function _resolve(dir: string) {
   return resolve(__dirname, dir);
@@ -21,18 +20,7 @@ export const makeConfig = ({ mode }: UserConfig) => {
     global: 'globalThis',
   };
 
-  const plugins = [
-    vue(),
-    // nodePolyfills({
-    //   include: ['timers', 'timers/promises', 'path', 'url', 'fs'],
-    //   globals: {
-    //     Buffer: true,
-    //     global: true,
-    //     process: true,
-    //   },
-    // }),
-    vueDevTools(),
-  ];
+  const plugins = [vue(), vueDevTools()];
 
   return {
     server,
@@ -63,6 +51,7 @@ export const makeConfig = ({ mode }: UserConfig) => {
           },
         ],
       },
+      chunkSizeWarningLimit: 0,
     },
 
     define,
@@ -82,7 +71,7 @@ export const makeConfig = ({ mode }: UserConfig) => {
       },
     },
   };
-}
+};
 
 // https://vitejs.dev/config/
 // @ts-ignore

@@ -14,15 +14,21 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import { TreasureEvent, type TreasureGroup, TreasureRecord } from '../@types/common.types.ts';
+import type { TreasureEvent, TreasureGroup, TreasureRecord } from '../shared/@types/common.types.ts';
 
 export interface TreasureDenoSrv {
-  fs: web3n.files.WritableFS;
   emitTreasureEvent: (event: TreasureEvent) => void;
   watchEvent: (obs: web3n.Observer<TreasureEvent>) => () => void;
 
   rewriteGroups: (data: TreasureGroup[]) => Promise<boolean>;
   getAllTreasureGroups: () => Promise<TreasureGroup[] | null | undefined>;
+
+  loadRecentFile: () => Promise<string[]>;
+  saveRecentFile: (data: string[]) => Promise<void>;
+
+  loadImage: (imageId: string) => Promise<Uint8Array | undefined>;
+  saveImage: (data: { bytes: Uint8Array; id?: string }) => Promise<string>;
+  deleteImages: (fileIds: string[]) => Promise<void>;
 
   addRecord: (
     data: TreasureRecord,
@@ -40,9 +46,13 @@ export interface TreasureDenoSrv {
 export type TreasureDenoSrvInternal = Omit<TreasureDenoSrv, 'fs' | 'emitTreasureEvent'>;
 
 export interface TreasureFileSrv {
+  loadRecentFile: () => Promise<string[]>;
+  saveRecentFile: (data: string[]) => Promise<void>;
   saveFile: (data: TreasureRecord | TreasureGroup[], fileName?: string) => Promise<string>;
+  saveImage: (data: { bytes: Uint8Array; id?: string }) => Promise<string>;
   updateFile: (data: TreasureRecord | TreasureGroup[], fileName?: string) => Promise<void>;
   getFile: <T>(fileName: string) => Promise<(T extends TreasureRecord ? TreasureRecord : TreasureGroup[]) | null>;
+  loadImage: (fileId: string) => Promise<Uint8Array | undefined>;
   deleteFile: (fileName: string) => Promise<void>;
   deleteFiles: (currentRecordFileName: string[]) => Promise<void>;
 }

@@ -19,8 +19,9 @@ import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import cloneDeep from 'lodash/cloneDeep';
 import size from 'lodash/size';
-import type { TreasureGroup } from '@types';
-import { useRecordStore } from '@/common/stores/record.store.ts';
+import type { TreasureGroup } from '@shared/@types';
+import { DEFAULT_GROUP } from '@shared/constants';
+import { useRecordStore } from '@/common/stores/record.store';
 
 const newGroupData: TreasureGroup = {
   id: '',
@@ -58,7 +59,7 @@ export function useGroup(group?: TreasureGroup) {
     const duplicate = Object.values(groups.value).find(
       gr => gr.name.toLowerCase() === v.toLowerCase() && gr.id !== groupData.value.id,
     );
-    return !duplicate && v.toLowerCase() !== 'favorites';
+    return !duplicate && v.toLowerCase() !== DEFAULT_GROUP.FAVORITES;
   }
 
   function handleInput(field: keyof TreasureGroup, value: string) {

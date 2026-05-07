@@ -59,7 +59,7 @@
           alt="logo"
           :class="$style.appLogo"
           @click.stop.prevent="openDashboard"
-        >
+        />
 
         <span :class="$style.delimiter">/</span>
 
@@ -321,5 +321,24 @@
     justify-content: center;
     align-items: center;
     pointer-events: none;
+  }
+</style>
+
+<style lang="scss">
+  .cross-fade-enter-active,
+  .cross-fade-leave-active {
+    transition:
+      opacity 0.3s ease-in-out,
+      filter 0.3s ease-in-out;
+  }
+
+  .cross-fade-enter-from {
+    opacity: 0;
+    filter: blur(5px);
+  }
+
+  .cross-fade-leave-to {
+    opacity: 0;
+    filter: blur(10px);
   }
 </style>

@@ -17,7 +17,7 @@
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
 import type { Nullable } from '@v1nt1248/3nclient-lib';
-import type { AppConfig, AppConfigs, AvailableLanguage, AvailableColorTheme } from '@types';
+import type { AppConfig, AppConfigs, AvailableLanguage, AvailableColorTheme } from '@shared/@types';
 import { blobFromDataURL, SystemSettings } from '@/common/utils';
 
 export const useAppStore = defineStore('app', () => {

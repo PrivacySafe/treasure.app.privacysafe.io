@@ -16,12 +16,18 @@
 */
 import { useRouter } from 'vue-router';
 import { APP_ROUTES } from '@/common/constants';
-import type { TreasureRecord } from '@types';
+import type { TreasureRecord } from '@shared/@types';
 
 export function useSort() {
   const router = useRouter();
 
-  async function changeSort<T extends TreasureRecord>({ field, direction }: { field: keyof T; direction: 'asc' | 'desc' }) {
+  async function changeSort<T extends TreasureRecord>({
+    field,
+    direction,
+  }: {
+    field: keyof T;
+    direction: 'asc' | 'desc';
+  }) {
     const newRouterData = {
       name: APP_ROUTES.RECORD_LIST,
       query: {
@@ -42,8 +48,10 @@ export function useSort() {
       return 0;
     }
 
-    const aValue = field === 'username' ? a.username : `${a.name || a.resource}${a.resource}`;
-    const bValue = field === 'username' ? b.username : `${b.name || b.resource}${b.resource}`;
+    // @ts-ignore
+    const aValue = (field === 'username' ? a.username : `${a.name || a.resource}${a.resource}`) as string;
+    // @ts-ignore
+    const bValue = (field === 'username' ? b.username : `${b.name || b.resource}${b.resource}`) as string;
 
     return aValue.toLowerCase() > bValue.toLowerCase()
       ? direction === 'desc'

@@ -14,10 +14,28 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-export async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (err) {
-    console.error('Error copying to clipboard. ', err);
+import { checkServerConnection } from '../check-server-connection.ts';
+import { syncUpload } from '../sync-upload.ts';
+import type { TreasureEvent } from '../../../shared/@types';
+
+export async function handleFolderUnsyncedStatus({
+  path,
+  fs,
+  emitEvent,
+}: {
+  path: string;
+  fs: web3n.files.WritableFS;
+  emitEvent: (event: TreasureEvent) => void;
+}) {
+  const isServerConnection = await checkServerConnection(fs);
+  if (!isServerConnection) {
+    return undefined;
   }
+
+  return syncUpload({
+    fs,
+    path,
+    emitEvent,
+    immediately: true,
+  });
 }

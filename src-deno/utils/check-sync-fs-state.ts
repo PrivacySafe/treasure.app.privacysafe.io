@@ -14,17 +14,17 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import type { TreasureEvent } from '../../@types/index.ts';
+import type { TreasureEvent } from '../../shared/@types';
 import type { TreasureFileSrv } from '../srv.types.ts';
-import { GROUPS_FILE_NAME } from '../../shared/constants.ts';
+import { GROUPS_FILE_NAME, IMAGES_FOLDER } from '../../shared/constants.ts';
 import { handleFileSyncedStatus } from './handle-diff-sys-statuses/handle-file-synced-status.ts';
 import { handleFileBehindStatus } from './handle-diff-sys-statuses/handle-file-behind-status.ts';
 import { handleFileUnsyncedStatus } from './handle-diff-sys-statuses/handle-file-unsynced-status.ts';
 import { handleRecordConflictingStatus } from './handle-diff-sys-statuses/handle-record-conflicting-status.ts';
 import { handleGroupsConflictingStatus } from './handle-diff-sys-statuses/handle-groups-conflicting-status.ts';
-import { handleRootUnsyncedStatus } from './handle-diff-sys-statuses/handle-root-unsynced-status.ts';
-import { handleRootBehindStatus } from './handle-diff-sys-statuses/handle-root-behind-status.ts';
-import { handleRootConflictingStatus } from './handle-diff-sys-statuses/handle-root-conflicting-status.ts';
+import { handleFolderUnsyncedStatus } from './handle-diff-sys-statuses/handle-folder-unsynced-status.ts';
+import { handleFolderBehindStatus } from './handle-diff-sys-statuses/handle-folder-behind-status.ts';
+import { handleFolderConflictingStatus } from './handle-diff-sys-statuses/handle-folder-conflicting-status.ts';
 
 export async function checkItemSyncState({
   path,
@@ -67,28 +67,30 @@ export async function checkItemSyncState({
   }
 }
 
-export async function checkRootSyncState({
+export async function checkFolderSyncState({
+  path,
   fs,
   emitEvent,
 }: {
+  path: string;
   fs: web3n.files.WritableFS;
   emitEvent: (event: TreasureEvent) => void;
 }) {
   try {
-    const rootSyncStatus = await fs.v?.sync?.status('');
-    // console.log(`🔔 CHECK SYNC [ROOT] => ${rootSyncStatus ? JSON.stringify(rootSyncStatus) : '👎'}`);
-    if (rootSyncStatus) {
-      switch (rootSyncStatus.state) {
+    const folderSyncStatus = await fs.v?.sync?.status('');
+    // console.log(`🔔 CHECK SYNC [${path || 'ROOT'}] => ${folderSyncStatus ? JSON.stringify(folderSyncStatus) : '👎'}`);
+    if (folderSyncStatus) {
+      switch (folderSyncStatus.state) {
         case 'unsynced': {
-          return handleRootUnsyncedStatus({ fs, emitEvent });
+          return handleFolderUnsyncedStatus({ path, fs, emitEvent });
         }
 
         case 'behind': {
-          return handleRootBehindStatus({ fs, syncStatus: rootSyncStatus, emitEvent });
+          return handleFolderBehindStatus({ path, fs, syncStatus: folderSyncStatus, emitEvent });
         }
 
         case 'conflicting': {
-          return  handleRootConflictingStatus({ fs, emitEvent });
+          return handleFolderConflictingStatus({ path, fs, emitEvent });
         }
 
         // no default
@@ -100,7 +102,7 @@ export async function checkRootSyncState({
       (err as web3n.files.FSSyncException).childNeverUploaded
     ) {
       setTimeout(async () => {
-        await checkRootSyncState({ fs, emitEvent });
+        await checkFolderSyncState({ path, fs, emitEvent });
       }, 10000);
       return;
     }
@@ -119,17 +121,36 @@ export async function checkSyncFsState({
   emitEvent: (event: TreasureEvent) => void;
 }) {
   try {
-    const folderList = await fs.listFolder('');
-    for (const entity of folderList) {
-      await checkItemSyncState({
-        path: entity.name,
-        fs,
-        fileSrv,
-        emitEvent,
-      });
+    const rootFolderList = await fs.listFolder('');
+    for (const entity of rootFolderList) {
+      const { name, isFile } = entity;
+
+      if (isFile) {
+        await checkItemSyncState({
+          path: name,
+          fs,
+          fileSrv,
+          emitEvent,
+        });
+      }
     }
 
-    await checkRootSyncState({ fs, emitEvent });
+    const imagesFolderList = await fs.listFolder(IMAGES_FOLDER);
+    for (const entity of imagesFolderList) {
+      const { name, isFile } = entity;
+
+      if (isFile) {
+        await checkItemSyncState({
+          path: `${IMAGES_FOLDER}/${name}`,
+          fs,
+          fileSrv,
+          emitEvent,
+        });
+      }
+    }
+
+    await checkFolderSyncState({ path: IMAGES_FOLDER, fs, emitEvent });
+    await checkFolderSyncState({ path: '', fs, emitEvent });
     emitEvent({ event: 'update:records' });
   } catch (err) {
     w3n.log('error', '🔥 Error while initial checking sync state. ', err);

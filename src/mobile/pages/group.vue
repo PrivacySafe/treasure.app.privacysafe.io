@@ -154,7 +154,7 @@
           :placeholder="t('groupDialog.form.fields.name.placeholder')"
           :rules="nameRules"
           :disabled="!!groupData.id"
-          @update:model-value="v => handleInput('name', v)"
+          @update:model-value="(v: string) => handleInput('name', v)"
           @update:valid="onValidationFlagUpdate"
         />
       </div>
@@ -164,7 +164,7 @@
           :model-value="groupData.description || ''"
           :label="t('groupDialog.form.fields.description.label')"
           :placeholder="t('groupDialog.form.fields.description.placeholder')"
-          @update:model-value="v => handleInput('description', v)"
+          @update:model-value="(v: string) => handleInput('description', v)"
         />
       </div>
     </div>

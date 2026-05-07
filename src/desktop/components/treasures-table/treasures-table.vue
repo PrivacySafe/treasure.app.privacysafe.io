@@ -19,13 +19,15 @@
   import { useRoute } from 'vue-router';
   import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
-  import { Ui3nTable, type Nullable, type Ui3nTableExpose, type Ui3nTableSort } from '@v1nt1248/3nclient-lib';
+  import { Ui3nTable, type Nullable, type Ui3nTableExpose } from '@v1nt1248/3nclient-lib';
   import { useSyncStore } from '@/common/stores/sync.store';
   import { useTreasuresTable } from './use-treasures-table';
-  import type { SyncType, TreasureRecord } from '@types';
+  import type { SyncType, TreasureRecord } from '@shared/@types';
   import TreasuresTableRow from './treasures-table-row.vue';
+  import ImagesSlider from '@/desktop/components/images-slider.vue';
 
   const props = defineProps<{
+    selectedGroup: string;
     records: TreasureRecord[];
   }>();
   const emits = defineEmits<{
@@ -37,6 +39,9 @@
   const route = useRoute();
   const { syncProcesses } = storeToRefs(useSyncStore());
 
+  const tableComponent = ref<Nullable<Ui3nTableExpose<TreasureRecord>>>(null);
+  const optionsOfShowingImages = ref<string[] | null>(null);
+
   const tableSort = computed(() => {
     const { sortBy = 'name', sortOrder = 'asc' } = route.query as {
       sortBy?: 'name' | 'username';
@@ -44,13 +49,14 @@
     };
 
     return { field: sortBy, direction: sortOrder };
-  }) as ComputedRef<Ui3nTableSort<TreasureRecord>>;
+  }) as ComputedRef<{ field: 'name' | 'username'; direction: 'asc' | 'desc' }>;
 
   const { prepareTreasuresTableData, changeSort, sortTreasuresTableData } = useTreasuresTable();
 
-  const tableData = computed(() => prepareTreasuresTableData(props.records));
+  const currentSelectedGroup = computed(() => props.selectedGroup);
 
-  const tableComponent = ref<Nullable<Ui3nTableExpose<TreasureRecord>>>(null);
+  const tableData = computed(() => prepareTreasuresTableData(props.records, currentSelectedGroup));
+
   const sortedTableData = computed(() =>
     (tableData.value?.body?.content || []).sort((a, b) =>
       sortTreasuresTableData(a, b, tableSort.value.field, tableSort.value.direction),
@@ -79,8 +85,10 @@
           :row="row"
           :column-style="columnStyle"
           :sync-process="recordSyncProcess(row.id)"
+          :selected-group="selectedGroup"
           @open="emits('edit', $event)"
           @set:favorite="emits('set:favorite', $event)"
+          @show:images="(v: string[]) => (optionsOfShowingImages = v)"
         />
       </template>
 
@@ -95,6 +103,16 @@
         </div>
       </template>
     </ui3n-table>
+
+    <teleport
+      v-if="optionsOfShowingImages"
+      to="#main"
+    >
+      <images-slider
+        :image-ids="optionsOfShowingImages"
+        @close="() => (optionsOfShowingImages = null)"
+      />
+    </teleport>
   </div>
 </template>
 

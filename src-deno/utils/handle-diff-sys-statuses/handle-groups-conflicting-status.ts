@@ -16,7 +16,7 @@
 */
 import { checkServerConnection } from '../check-server-connection.ts';
 import { syncUpload } from '../sync-upload.ts';
-import type { TreasureEvent, TreasureGroup } from '../../../@types/index.ts';
+import type { TreasureEvent, TreasureGroup } from '../../../shared/@types';
 import { GROUPS_FILE_NAME } from '../../../shared/constants.ts';
 import type { TreasureFileSrv } from '../../srv.types.ts';
 

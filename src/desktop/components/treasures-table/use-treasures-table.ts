@@ -15,32 +15,55 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { useI18n } from 'vue-i18n';
-import type { Ui3nTableProps } from '@v1nt1248/3nclient-lib';
+import type { Ui3nTableHeadProps, Ui3nTableProps } from '@v1nt1248/3nclient-lib';
+import type { TreasureRecord } from '@shared/@types';
 import { useSort } from '@/common/composables/use-sort.ts';
-import type { TreasureRecord } from '@types';
+import { ComputedRef } from 'vue';
+import { DEFAULT_GROUP } from '@shared/constants.ts';
 
 export function useTreasuresTable() {
   const { t } = useI18n();
   const { changeSort, sortTreasuresTableData } = useSort();
 
-  function prepareTreasuresTableData(data: TreasureRecord[]) {
+  function prepareTreasuresTableData(data: TreasureRecord[], selectedGroup: ComputedRef<string>) {
+    const tableDataHead: Ui3nTableHeadProps<
+      TreasureRecord & {
+        sync?: string;
+      }
+    >[] = [
+      { key: 'name', text: t('treasuresTable.header.name'), sortable: true },
+      { key: 'sync', text: t('treasuresTable.header.sync') },
+      {
+        key: 'username',
+        text:
+          selectedGroup.value === DEFAULT_GROUP.CARDS
+            ? t('treasuresTable.header.photo')
+            : t('treasuresTable.header.username'),
+        sortable: selectedGroup.value !== DEFAULT_GROUP.CARDS,
+      },
+    ];
+
+    if (selectedGroup.value !== DEFAULT_GROUP.CARDS) {
+      tableDataHead.push({
+        key: 'password',
+        text: t('treasuresTable.header.password'),
+      });
+    }
+
     const tableDataConfig: Ui3nTableProps<TreasureRecord & { sync?: string }> = {
       config: {
         fieldAsRowKey: 'id',
         columnStyle: {
-          name: { width: 'calc(100% - 524px)' },
+          name: {
+            width: selectedGroup.value === DEFAULT_GROUP.CARDS ? 'calc(100% - 348px)' : 'calc(100% - 524px)',
+          },
           sync: { width: '92px' },
           username: { width: '256px' },
-          password: { width: '176px' },
+          ...(selectedGroup.value !== DEFAULT_GROUP.CARDS && { password: { width: '176px' } }),
         },
         showNoDataMessage: false,
       },
-      head: [
-        { key: 'name', text: t('treasuresTable.header.name'), sortable: true },
-        { key: 'sync', text: t('treasuresTable.header.sync') },
-        { key: 'username', text: t('treasuresTable.header.username'), sortable: true },
-        { key: 'password', text: t('treasuresTable.header.password') },
-      ],
+      head: tableDataHead,
       body: {
         content: data,
       },

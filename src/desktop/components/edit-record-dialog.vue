@@ -17,20 +17,23 @@
 <script setup lang="ts">
   import { inject } from 'vue';
   import { storeToRefs } from 'pinia';
-  import { DIALOGS_KEY } from '@v1nt1248/3nclient-lib/plugins';
+  import cloneDeep from 'lodash/cloneDeep';
+  import { DIALOGS_KEY, NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
   import {
     Ui3nButton,
     Ui3nDialog,
     Ui3nIcon,
-    Ui3nInput,
-    Ui3nSelector,
+    Ui3nProgressCircular,
     type Ui3nDialogComponentProps,
     type Ui3nDialogEvent,
   } from '@v1nt1248/3nclient-lib';
+  import { appTreasureDenoSrv } from '@/common/services/service-provider';
   import { useRecordStore } from '@/common/stores/record.store';
   import { useRecord } from '@/common/composables/use-record';
-  import type { TreasureRecord } from '@types';
+  import type { ProcessedImage, TreasureRecord } from '@shared/@types';
   import ConfirmationDialog from '@/common/components/dialogs/confirmation-dialog.vue';
+  import RecordEditor from '@/common/components/record-editor.vue';
+  import CardEditor from '@/common/components/card-editor.vue';
 
   const props = defineProps<{
     record?: TreasureRecord;
@@ -42,23 +45,11 @@
   }>();
 
   const { $openDialog } = inject(DIALOGS_KEY)!;
-  const { sortedGroups } = storeToRefs(useRecordStore());
+  const { $createNotice } = inject(NOTIFICATIONS_KEY)!;
+  const { sortedGroups, records } = storeToRefs(useRecordStore());
 
-  const {
-    t,
-    isLoading,
-    recordData,
-    showPassword,
-    errorMessages,
-    isFormValid,
-    isChanged,
-    resourceRules,
-    usernameRules,
-    passwordRules,
-    handleInput,
-    updateValidation,
-    generatePassword,
-  } = useRecord({ record: props.record, selectedGroup: props.selectedGroup });
+  const { t, isLoading, dialogTitle, recordData, images, isFormValid, isChanged, switchBetweenPasswordAndCard } =
+    useRecord({ record: cloneDeep(props.record), selectedGroup: props.selectedGroup });
 
   async function deleteRecord() {
     const confirmDialogRes = await $openDialog(ConfirmationDialog, {
@@ -81,12 +72,47 @@
     emits('action', { event: 'cancel' });
   }
 
-  function handleOk() {
+  async function handleOk() {
     if (!isFormValid.value || !isChanged.value) {
       return;
     }
 
-    emits('action', { event: 'confirm', data: recordData.value });
+    try {
+      isLoading.value = true;
+      if (recordData.value.type === 'card') {
+        recordData.value.images = [];
+        for (const img of images.value) {
+          const { name, data, isNew, isTouched, toDelete } = img;
+
+          if (toDelete) {
+            !isNew && (await appTreasureDenoSrv.deleteImages([name]));
+            continue;
+          }
+
+          if (isNew) {
+            const newImageId = await appTreasureDenoSrv.saveImage({ bytes: data as Uint8Array });
+            recordData.value.images.push(newImageId);
+            continue;
+          }
+
+          if (isTouched) {
+            await appTreasureDenoSrv.saveImage({ id: name, bytes: data as Uint8Array });
+          }
+
+          recordData.value.images.push(name);
+        }
+      }
+
+      emits('action', { event: 'confirm', data: recordData.value });
+    } catch (err) {
+      console.error('Error updating images of the custom user card. ', err);
+      $createNotice({
+        type: 'error',
+        content: 'Something went wrong. Error updating images of the custom user card.',
+      });
+    } finally {
+      isLoading.value = false;
+    }
   }
 </script>
 
@@ -106,100 +132,44 @@
           />
 
           <span :class="$style.title">
-            {{ recordData.id === 'new' ? t('recordDialog.title.add') : t('recordDialog.title.edit') }}
+            {{ dialogTitle }}
           </span>
         </div>
       </div>
     </template>
 
     <template #body>
-      <div :class="$style.body">
-        <div :class="$style.row">
-          <ui3n-input
-            :model-value="recordData.name || ''"
-            :label="t('recordDialog.form.fields.name.label')"
-            :placeholder="t('recordDialog.form.fields.name.placeholder')"
-            :disabled="isLoading"
-            @update:model-value="v => handleInput('name', v)"
-          />
-        </div>
+      <card-editor
+        v-if="recordData.type === 'card'"
+        :record="recordData"
+        :records="records"
+        :sorted-groups="sortedGroups"
+        :images="images"
+        :is-loading="isLoading"
+        @update:record="(v: TreasureRecord) => (recordData = v)"
+        @update:images="(v: ProcessedImage[]) => (images = v)"
+        @update:image="(v: { index: number; data: ProcessedImage }) => (images[v.index] = v.data)"
+        @update:validation-flag="(v: boolean) => (isFormValid = v)"
+      />
 
-        <div :class="$style.row">
-          <ui3n-input
-            :model-value="recordData.resource"
-            :label="`${t('recordDialog.form.fields.resource.label')}*`"
-            :placeholder="t('recordDialog.form.fields.resource.placeholder')"
-            :rules="resourceRules"
-            :display-state-mode="errorMessages.resource ? 'error' : undefined"
-            :display-state-message="errorMessages.resource"
-            :disabled="isLoading"
-            @update:model-value="v => handleInput('resource', v)"
-            @update:valid="v => updateValidation('resource', v)"
-          />
-        </div>
+      <record-editor
+        v-else
+        :record="recordData"
+        :records="records"
+        :sorted-groups="sortedGroups"
+        :is-loading="isLoading"
+        @update:record="(v: TreasureRecord) => (recordData = v)"
+        @update:validation-flag="(v: boolean) => (isFormValid = v)"
+      />
 
-        <div :class="$style.row">
-          <ui3n-input
-            :model-value="recordData.username"
-            :label="`${t('recordDialog.form.fields.username.label')}*`"
-            :placeholder="t('recordDialog.form.fields.username.placeholder')"
-            :rules="usernameRules"
-            :display-state-mode="errorMessages.username ? 'error' : undefined"
-            :display-state-message="errorMessages.username"
-            :disabled="isLoading"
-            @update:model-value="v => handleInput('username', v)"
-            @update:valid="v => updateValidation('username', v)"
-          />
-        </div>
-
-        <div :class="[$style.row, $style.password]">
-          <div :class="$style.wrapper">
-            <ui3n-input
-              :model-value="recordData.password"
-              :type="showPassword ? 'text' : 'password'"
-              :label="`${t('recordDialog.form.fields.password.label')}*`"
-              :placeholder="t('recordDialog.form.fields.password.placeholder')"
-              :rules="passwordRules"
-              :disabled="isLoading"
-              :class="$style.passwordField"
-              @update:model-value="v => handleInput('password', v)"
-              @update:valid="v => updateValidation('password', v)"
-            />
-
-            <ui3n-button
-              type="icon"
-              size="small"
-              color="var(--color-bg-control-secondary-default)"
-              :icon="showPassword ? 'eye-off-outline' : 'eye-outline'"
-              icon-color="var(--color-icon-control-accent-default)"
-              icon-size="16"
-              :class="$style.showBtn"
-              @click.stop.prevent="showPassword = !showPassword"
-            />
-          </div>
-
-          <ui3n-button
-            type="custom"
-            color="var(--color-bg-button-tritery-default)"
-            text-color="var(--color-text-button-tritery-default)"
-            :class="$style.generateBtn"
-            @click.stop.prevent="generatePassword"
-          >
-            {{ t('recordDialog.form.btns.generate') }}
-          </ui3n-button>
-        </div>
-
-        <div :class="$style.row">
-          <ui3n-selector
-            :model-value="recordData.group"
-            :label="t('recordDialog.form.fields.group.label')"
-            :placeholder="t('recordDialog.form.fields.group.placeholder')"
-            :items="sortedGroups"
-            item-display="name"
-            clearable
-            @update:model-value="v => handleInput('group', v || null)"
-          />
-        </div>
+      <div
+        v-if="isLoading"
+        :class="$style.loader"
+      >
+        <ui3n-progress-circular
+          indeterminate
+          size="100"
+        />
       </div>
     </template>
 
@@ -217,6 +187,20 @@
             @click.stop.prevent="deleteRecord"
           >
             {{ t('recordDialog.btn.delete') }}
+          </ui3n-button>
+
+          <ui3n-button
+            v-if="recordData.id === 'new'"
+            type="custom"
+            color="var(--color-bg-block-primary-default)"
+            text-color="var(--color-text-button-secondary-default)"
+            @click="switchBetweenPasswordAndCard"
+          >
+            {{
+              recordData.type === 'card'
+                ? t('recordDialog.btn.switch_to_password')
+                : t('recordDialog.btn.switch_to_card')
+            }}
           </ui3n-button>
         </div>
 
@@ -249,6 +233,7 @@
 
     position: relative;
     border-radius: var(--spacing-m) !important;
+    overflow: hidden;
 
     .block {
       display: flex;
@@ -274,49 +259,6 @@
       }
     }
 
-    .body {
-      position: relative;
-      width: 100%;
-      padding: var(--spacing-m);
-      overflow-y: auto;
-
-      .row {
-        position: relative;
-        width: 100%;
-        margin-bottom: var(--spacing-s);
-
-        &.password {
-          display: flex;
-          justify-content: flex-start;
-          align-items: flex-end;
-          column-gap: var(--spacing-m);
-        }
-
-        .passwordField {
-          input {
-            padding-right: var(--spacing-l);
-          }
-        }
-
-        .showBtn {
-          position: absolute;
-          right: 4px;
-          top: 24px;
-        }
-      }
-
-      .generateBtn {
-        min-width: 144px;
-        width: 144px;
-        bottom: 15px;
-      }
-
-      .groupSelector {
-        border-radius: 4px;
-        background-color: var(--color-bg-control-secondary-default);
-      }
-    }
-
     .actions {
       display: flex;
       width: 100%;
@@ -326,9 +268,16 @@
       align-items: center;
     }
 
-    .wrapper {
-      position: relative;
-      flex-grow: 1;
+    & > div:nth-child(2) {
+      overflow: hidden !important;
+    }
+
+    .loader {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
   }
 </style>

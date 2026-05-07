@@ -18,24 +18,36 @@ import { MultiConnectionIPCWrap } from '../shared/ipc/ipc-service.js';
 import { sleep } from '../shared/processes/sleep.ts';
 import { ObserversSet } from '../shared/utils/observer-utils.ts';
 import { round } from '../shared/utils/round.ts';
-import { GROUPS_FILE_NAME } from '../shared/constants.ts';
+import { RECENT_FILE_NAME, GROUPS_FILE_NAME, IMAGES_FOLDER } from '../shared/constants.ts';
+import { debounce } from '../shared/utils/debounce.ts';
 import { setupGlobalReportingOfUnhandledErrors } from './utils/error-handling.ts';
 import { syncUpload } from './utils/sync-upload.ts';
 import { checkServerConnection } from './utils/check-server-connection.ts';
 import { treasureFileSrv } from './treasure-file-srv.ts';
 import { treasureSyncSrv } from './treasure-sync-srv.ts';
-import { handleRootFolderChangeSyncStatus } from './utils/handle-root-folder-change-sync-status.ts';
-import { handleRecordFileChangeSyncStatus } from './utils/handle-record-file-change-sync-status.ts';
-import { handleGroupsFileChangeSyncStatus } from './utils/handle-groups-file-change-sync-status.ts';
+import { handleFolderChangeSyncStatus } from './utils/handle-folder-change-sync-status.ts';
+import { handleFileChangeSyncStatus } from './utils/handle-file-change-sync-status.ts';
 import { checkSyncFsState } from './utils/check-sync-fs-state.ts';
-import type { TreasureEvent, TreasureGroup, TreasureRecord } from '../@types/common.types.ts';
+import type { TreasureCardRecord, TreasureEvent, TreasureGroup, TreasureRecord } from '../shared/@types/common.types.ts';
 import type { TreasureDenoSrv, TreasureDenoSrvInternal } from './srv.types.ts';
 
 async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
   setupGlobalReportingOfUnhandledErrors(true);
 
   const fs = await w3n.storage!.getAppSyncedFS();
-  const fileSrv = await treasureFileSrv(fs);
+  const fsLocal = await w3n.storage!.getAppLocalFS();
+
+  if (!(await fs.checkFolderPresence(IMAGES_FOLDER))) {
+    await fs.makeFolder(IMAGES_FOLDER);
+    await fs.v?.sync?.upload(IMAGES_FOLDER);
+    await fs.v?.sync?.upload('');
+  }
+
+  if (!(await fsLocal.checkFilePresence(RECENT_FILE_NAME))) {
+    await fsLocal.writeJSONFile(RECENT_FILE_NAME, []);
+  }
+
+  const fileSrv = await treasureFileSrv(fs, fsLocal);
 
   const eventsObservers = new ObserversSet<TreasureEvent>();
 
@@ -50,7 +62,7 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
 
   await treasureSyncSrv({ fs, fileSrv, emitEvent: emitTreasureEvent });
 
-  fs.watchTree('', 2, {
+  fs.watchTree('', 3, {
     next: async event => {
       const { type, path } = event;
       const processedPath = path.replace('./', '').replace('.', '');
@@ -135,21 +147,35 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
 
         case 'remote-change': {
           if (!processedPath) {
-            await handleRootFolderChangeSyncStatus(fs, emitTreasureEvent);
-          } else if (processedPath === GROUPS_FILE_NAME) {
-            await handleGroupsFileChangeSyncStatus(fs, fileSrv, emitTreasureEvent);
-            emitTreasureEvent({
-              event: 'update:group'
-            });
-          } else {
-            await handleRecordFileChangeSyncStatus(processedPath, fs, fileSrv, emitTreasureEvent);
-            emitTreasureEvent({
-              event: 'update:record',
-              payload: {
-                data: processedPath,
-              },
-            });
+            await handleFolderChangeSyncStatus({ path: '', fs, emitTreasureEvent });
+            return;
           }
+
+          if (processedPath === IMAGES_FOLDER) {
+            await handleFolderChangeSyncStatus({ path: IMAGES_FOLDER, fs, emitTreasureEvent });
+            return;
+          }
+
+          if (processedPath.includes(IMAGES_FOLDER)) {
+            await handleFileChangeSyncStatus(processedPath, fs, fileSrv, emitTreasureEvent);
+            return;
+          }
+
+          if (processedPath === GROUPS_FILE_NAME) {
+            await handleFileChangeSyncStatus(GROUPS_FILE_NAME, fs, fileSrv, emitTreasureEvent);
+            emitTreasureEvent({
+              event: 'update:group',
+            });
+            return;
+          }
+
+          await handleFileChangeSyncStatus(processedPath, fs, fileSrv, emitTreasureEvent);
+          emitTreasureEvent({
+            event: 'update:record',
+            payload: {
+              data: processedPath,
+            },
+          });
           break;
         }
 
@@ -183,7 +209,7 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
 
   async function getAllTreasureGroups(): Promise<TreasureGroup[] | null | undefined> {
     try {
-      return fileSrv.getFile<TreasureGroup[]>(GROUPS_FILE_NAME)
+      return fileSrv.getFile<TreasureGroup[]>(GROUPS_FILE_NAME);
     } catch (err) {
       if ((err as web3n.files.FileException).notFound) {
         return [];
@@ -191,6 +217,19 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
 
       w3n.log('error', 'Error getting treasure groups', err);
     }
+  }
+
+  async function loadImage(imageId: string): Promise<Uint8Array | undefined> {
+    return fileSrv.loadImage(imageId);
+  }
+
+  async function saveImage(data: { bytes: Uint8Array; id?: string }) {
+    return fileSrv.saveImage(data);
+  }
+
+  async function deleteImages(imageIds: string[]): Promise<void> {
+    const fileNames = imageIds.map(id => `${IMAGES_FOLDER}/${id}`);
+    return fileSrv.deleteFiles(fileNames);
   }
 
   async function addRecord(
@@ -228,6 +267,8 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
   async function deleteRecord(data: TreasureRecord, withoutUploadParentFolder?: boolean): Promise<boolean> {
     const reference = data.reference;
     const source = data.source;
+    const images: string[] = JSON.parse(JSON.stringify((data as TreasureCardRecord).images || []));
+
     await fileSrv.deleteFile(data.id);
     if (reference) {
       const record = await getRecord(reference);
@@ -245,9 +286,18 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
       }
     }
 
+    if (images.length) {
+      const processedImagesPath = images.map(fileId => `${IMAGES_FOLDER}/${fileId}`);
+      await fileSrv.deleteFiles(processedImagesPath);
+    }
+
     const isConnectionAvailable = await checkServerConnection(fs);
     if (isConnectionAvailable && !withoutUploadParentFolder) {
       await syncUpload({ fs, path: '', emitEvent: emitTreasureEvent, immediately: true });
+
+      if (images.length) {
+        await syncUpload({ fs, path: IMAGES_FOLDER, emitEvent: emitTreasureEvent, immediately: true });
+      }
       return true;
     }
 
@@ -255,15 +305,15 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
   }
 
   async function deleteRecords(ids: string[]): Promise<boolean> {
-    await fileSrv.deleteFiles(ids);
-
-    const isConnectionAvailable = await checkServerConnection(fs);
-    if (isConnectionAvailable) {
-      await syncUpload({ fs, path: '', emitEvent: emitTreasureEvent, immediately: true });
-      return true;
+    const pr = [];
+    for (let i = 0; i < ids.length; i++) {
+      const record = await getRecord(ids[i]);
+      if (record) {
+        pr.push(deleteRecord(record, i < ids.length - 1));
+      }
     }
-
-    return false;
+    const res = await Promise.allSettled(pr);
+    return !res.some(item => item.status === 'fulfilled' && !item.value);
   }
 
   async function getRecord(id: string): Promise<TreasureRecord | null> {
@@ -282,7 +332,6 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
   async function getRecordSyncStatus(id: string): Promise<web3n.files.SyncStatus | undefined> {
     const isRecordFilePresent = await fs.checkFilePresence(id);
     if (!isRecordFilePresent) {
-      console.info(`[!!!!!] There is no file with name ${id}.`);
       return undefined;
     }
 
@@ -302,7 +351,7 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
     return res.reduce(
       (res, item) => {
         if (item.status === 'fulfilled') {
-          item.value && (res.records.push(item.value));
+          item.value && res.records.push(item.value);
         } else {
           res.errors.push(item.reason);
         }
@@ -311,6 +360,14 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
       },
       { records: [] as TreasureRecord[], errors: [] as unknown[] },
     );
+  }
+
+  const debouncedSave = debounce((data: string[]) => {
+    fileSrv.saveRecentFile(data);
+  }, 2000);
+
+  async function saveRecentFile(data: string[]) {
+    debouncedSave(data);
   }
 
   async function initial() {
@@ -335,13 +392,17 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
   }
 
   return {
-    fs,
     emitTreasureEvent,
     watchEvent,
 
     rewriteGroups,
     getAllTreasureGroups,
 
+    loadRecentFile: fileSrv.loadRecentFile,
+    saveRecentFile,
+    loadImage,
+    saveImage,
+    deleteImages,
     addRecord,
     updateRecord,
     deleteRecord,
@@ -361,6 +422,11 @@ treasureDenoSrv()
     srvWrapInternal.exposeReqReplyMethods<TreasureDenoSrvInternal>(srv, [
       'rewriteGroups',
       'getAllTreasureGroups',
+      'loadRecentFile',
+      'saveRecentFile',
+      'loadImage',
+      'saveImage',
+      'deleteImages',
       'addRecord',
       'updateRecord',
       'deleteRecord',

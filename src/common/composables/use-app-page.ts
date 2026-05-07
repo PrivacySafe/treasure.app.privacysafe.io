@@ -32,7 +32,7 @@ import type {
   TreasureRemoveEvent,
   TreasureRecord,
   TreasureUpdateEvent,
-} from '@types';
+} from '@shared/@types';
 
 export function useAppPage() {
   const appStore = useAppStore();
@@ -52,7 +52,8 @@ export function useAppPage() {
   const { isSyncRunning } = storeToRefs(syncStore);
   const { addRecordToSyncList, removeRecordFromSyncList, updateSyncListRecord } = syncStore;
 
-  const { getAllGroups, getAllRecords, getRecord, getRecords, updateRecordList } = useRecordStore();
+  const { getAllGroups, getAllRecords, getRecord, getRecords, loadRecentRecords, updateRecordList } =
+    useRecordStore();
 
   w3n.connectivity!.watch({
     next: event => {
@@ -82,6 +83,7 @@ export function useAppPage() {
     await getAppConfig();
     await getAllGroups();
     await getAllRecords();
+    await loadRecentRecords();
 
     const onlineFlag = await w3n.connectivity?.isOnline();
     setConnectivityStatus(!!onlineFlag?.includes('online'));

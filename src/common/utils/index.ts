@@ -16,5 +16,5 @@
 */
 export * from './ui-settings';
 export * from './for-images';
-export * from './generate-color';
-export * from './copy-to-clipboard';
+export * from './create-image-thumbnail';
+export * from './generate-unique-img-placeholder';

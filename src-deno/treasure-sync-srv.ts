@@ -16,7 +16,7 @@
 */
 import { checkSyncFsState } from './utils/check-sync-fs-state.ts';
 import type { TreasureFileSrv } from '@deno/srv.types.ts';
-import type { TreasureEvent } from '../@types';
+import type { TreasureEvent } from '../shared/@types';
 
 async function isConnectionOnline() {
   return ((await w3n.connectivity?.isOnline()) || '').includes('online');
@@ -36,7 +36,7 @@ export async function treasureSyncSrv({
     next: async event => {
       const { isOnline } = event;
       if (isOnline && !isOnlinePrev) {
-        console.info('🚀 CONNECTION RESTORED 🚀');
+        // console.info('🚀 CONNECTION RESTORED 🚀');
         checkSyncFsState({ fs, fileSrv, emitEvent });
       }
 

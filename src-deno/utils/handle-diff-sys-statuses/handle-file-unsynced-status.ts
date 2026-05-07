@@ -16,7 +16,7 @@
 */
 import { checkServerConnection } from '../check-server-connection.ts';
 import { syncUpload } from '../sync-upload.ts';
-import type { TreasureEvent } from '../../../@types/index.ts';
+import type { TreasureEvent } from '../../../shared/@types';
 
 export async function handleFileUnsyncedStatus({
   fs,

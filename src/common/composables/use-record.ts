@@ -18,114 +18,126 @@ import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
 import cloneDeep from 'lodash/cloneDeep';
-import { getRandomId } from '@v1nt1248/3nclient-lib/utils';
+import difference from 'lodash/difference';
+import isEmpty from 'lodash/isEmpty';
 import { useRecordStore } from '@/common/stores/record.store';
-import type { TreasureRecord } from '@types';
+import type { ProcessedImage, TreasureCardRecord, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
+import { DEFAULT_GROUP } from '@shared/constants.ts';
 
-const newRecordData: TreasureRecord = {
+const newPasswordRecordData: TreasurePasswordRecord = {
   id: 'new',
   resource: '',
   name: '',
   username: '',
   password: '',
   group: '',
+  isFavorite: false,
+  type: 'password',
+};
+
+const newCardRecordData: TreasureCardRecord = {
+  id: 'new',
+  resource: '',
+  group: '',
+  images: [],
+  isFavorite: false,
+  type: 'card',
 };
 
 export function useRecord({ record, selectedGroup }: { record?: TreasureRecord; selectedGroup?: string }) {
   const { t } = useI18n();
 
   const recordStore = useRecordStore();
-  const { records, sortedGroups } = storeToRefs(recordStore);
+  const { sortedGroups } = storeToRefs(recordStore);
 
   const isLoading = ref(false);
-  const recordData = ref<TreasureRecord>(
+  const recordData = ref(
     record
       ? cloneDeep(record)
-      : {
-          ...cloneDeep(newRecordData),
-          ...(selectedGroup && selectedGroup !== 'favorites' && { group: selectedGroup }),
-          ...(selectedGroup && selectedGroup === 'favorites' && { isFavorite: true }),
-        },
+      : selectedGroup && selectedGroup === DEFAULT_GROUP.CARDS
+        ? cloneDeep(newCardRecordData)
+        : {
+            ...cloneDeep(newPasswordRecordData),
+            ...(selectedGroup && selectedGroup === DEFAULT_GROUP.FAVORITES && { isFavorite: true }),
+            ...(selectedGroup &&
+              !([DEFAULT_GROUP.RECENT, DEFAULT_GROUP.FAVORITES] as string[]).includes(selectedGroup) && {
+                group: selectedGroup,
+              }),
+          },
   );
   const initialRecordData = ref<TreasureRecord>(cloneDeep(recordData.value));
-  const showPassword = ref(false);
-  const validation = ref({
-    resource: recordData.value.id !== 'new',
-    username: recordData.value.id !== 'new',
-    password: recordData.value.id !== 'new',
-  });
-  const errorMessages = ref({
-    resource: '',
-    username: '',
-  });
-
-  if (recordData.value.id !== 'new') {
-    doubleValidate();
-  }
-
-  const isFormValid = computed(
-    () =>
-      validation.value.resource &&
-      validation.value.username &&
-      validation.value.password &&
-      !errorMessages.value.resource &&
-      !errorMessages.value.username,
-  );
-  const isChanged = computed(() =>
-    Object.keys(newRecordData).some(
-      field =>
-        (recordData.value[field as keyof TreasureRecord] || '') !==
-        (initialRecordData.value[field as keyof TreasureRecord] || ''),
-    ),
+  const images = ref<ProcessedImage[]>(
+    record && record.type === 'card'
+      ? record.images.map(img => ({
+          name: img,
+          data: null,
+          isNew: false,
+        }))
+      : [],
   );
 
-  const resourceRules = [(v: unknown) => !!v || t('recordDialog.form.fields.resource.required')];
+  const isFormValid = ref(false);
 
-  const usernameRules = [(v: unknown) => !!v || t('recordDialog.form.fields.username.required')];
+  const dialogTitle = computed(() => {
+    if (recordData.value.type === 'card') {
+      return recordData.value.id === 'new' ? t('recordDialog.title.add_card') : t('recordDialog.title.edit_card');
+    }
 
-  const passwordRules = [(v: unknown) => !!v || t('recordDialog.form.fields.password.required')];
+    return recordData.value.id === 'new' ? t('recordDialog.title.add') : t('recordDialog.title.edit');
+  });
 
-  function doubleValidate() {
-    const currentId = recordData.value.id;
-    const duplicate = records.value.find(
-      r =>
-        r.resource === recordData.value.resource && r.username === recordData.value.username && r.id !== currentId,
-    );
+  const isChanged = computed(() => {
+    const recordDataFields =
+      recordData.value.type === 'card' ? Object.keys(newCardRecordData) : Object.keys(newPasswordRecordData);
 
-    errorMessages.value = {
-      resource: duplicate ? t('recordDialog.form.fields.resource.unique') : '',
-      username: duplicate ? t('recordDialog.form.fields.username.unique') : '',
-    };
-  }
+    return recordDataFields.some(field => {
+      if (field !== 'images') {
+        return (
+          (recordData.value[field as keyof TreasureRecord] || '') !==
+          (initialRecordData.value[field as keyof TreasureRecord] || '')
+        );
+      }
 
-  function generatePassword() {
-    recordData.value.password = getRandomId(16);
-    validation.value.password = true;
-  }
+      const currentImages = (recordData.value as TreasureCardRecord).images;
+      const initialImages = (initialRecordData.value as TreasureCardRecord).images;
+      const areCurrentImagesValuesChanged = images.value.some(img => img.isNew || img.isTouched);
 
-  function updateValidation(field: 'resource' | 'username' | 'password', val: boolean) {
-    validation.value[field] = val;
-  }
+      return (
+        !isEmpty(difference(currentImages, initialImages)) ||
+        !isEmpty(difference(initialImages, currentImages)) ||
+        areCurrentImagesValuesChanged
+      );
+    });
+  });
 
-  function handleInput(field: keyof TreasureRecord, value: string) {
-    recordData.value[field] = value as string as never;
-    doubleValidate();
+  function switchBetweenPasswordAndCard() {
+    const currentResource = recordData.value.resource;
+    const currentGroup = recordData.value.group;
+    const isFavorite = recordData.value.isFavorite;
+    const id = recordData.value.id;
+    images.value = [];
+
+    if (recordData.value.type === 'card') {
+      recordData.value = cloneDeep(newPasswordRecordData);
+    } else {
+      recordData.value = cloneDeep(newCardRecordData);
+    }
+
+    recordData.value.id = id;
+    recordData.value.resource = currentResource;
+    recordData.value.group = currentGroup;
+    recordData.value.isFavorite = isFavorite;
   }
 
   return {
     t,
     isLoading,
+    dialogTitle,
     sortedGroups,
     recordData,
-    resourceRules,
-    usernameRules,
-    passwordRules,
-    showPassword,
+    images,
     isFormValid,
     isChanged,
-    errorMessages,
-    generatePassword,
-    updateValidation,
-    handleInput,
+    switchBetweenPasswordAndCard,
   };
 }

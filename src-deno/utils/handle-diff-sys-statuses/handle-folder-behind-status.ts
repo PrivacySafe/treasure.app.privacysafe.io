@@ -14,9 +14,30 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-export interface TreasureTableData {
-  name: string;
-  sync: string;
-  username: string;
-  password: string;
+import { checkServerConnection } from '../check-server-connection.ts';
+import { syncAdopt } from '../sync-adopt.ts';
+import type { TreasureEvent } from '../../../shared/@types';
+
+export async function handleFolderBehindStatus({
+  path,
+  fs,
+  syncStatus,
+  emitEvent,
+}: {
+  path: string;
+  fs: web3n.files.WritableFS;
+  syncStatus: web3n.files.SyncStatus;
+  emitEvent: (event: TreasureEvent) => void;
+}): Promise<void> {
+  const isServerConnection = await checkServerConnection(fs);
+  if (!isServerConnection) {
+    return;
+  }
+
+  return syncAdopt({
+    fs,
+    path,
+    opts: { remoteVersion: syncStatus.remote!.latest! },
+    emitEvent,
+  });
 }

@@ -23,9 +23,11 @@
   import { useRecordStore } from '@/common/stores/record.store';
   import { useSyncStore } from '@/common/stores/sync.store';
   import { useSort } from '@/common/composables/use-sort';
-  import type { SyncType, TreasureRecord } from '@types';
+  import type { SyncType, TreasureRecord } from '@shared/@types';
   import RecordListItem from '@/mobile/components/record-list-item.vue';
   import { APP_ROUTES } from '@/common/constants';
+  import { DEFAULT_GROUP } from '@shared/constants';
+  import ImagesSlider from '@/desktop/components/images-slider.vue';
 
   const route = useRoute();
   const router = useRouter();
@@ -40,28 +42,36 @@
 
   const sortedGroupsAll = computed(() => [
     { id: 'all', name: t('list.all') },
-    { id: 'favorites', name: t('list.favorites') },
+    { id: DEFAULT_GROUP.RECENT, name: t('list.recent') },
+    { id: DEFAULT_GROUP.CARDS, name: t('list.cards') },
+    { id: DEFAULT_GROUP.FAVORITES, name: t('list.favorites') },
     ...sortedGroups.value,
   ]);
 
   const searchText = ref('');
   const selectedGroup = ref((route.query?.group as string) || '');
+  const optionsOfShowingImages = ref<string[] | null>(null);
 
   const processedSearchText = computed(() => searchText.value.toLowerCase());
 
   const filteredRecords = computed(() => {
-    return (!selectedGroup.value ? records.value : recordsByGroups.value[selectedGroup.value] || [])
+    if (!selectedGroup.value) {
+      return records.value;
+    }
+
+    return (recordsByGroups.value[selectedGroup.value] || [])
       .filter(r => {
-        const { resource, name = '', username } = r;
+        const { resource, name = '', username = '' } = r;
         const processedResource = resource.toLowerCase();
         const processedName = name.toLowerCase();
         const processedUsername = username.toLowerCase();
 
-        return (
-          processedResource.includes(processedSearchText.value) ||
-          processedName.includes(processedSearchText.value) ||
-          processedUsername.includes(processedSearchText.value)
-        );
+        const isResourceCompliant = processedResource.includes(processedSearchText.value);
+        const isNameCompliant =
+          !processedName || (!!processedName && processedName.includes(processedSearchText.value));
+        const isUsernameCompliant =
+          !processedUsername || (!!processedUsername && processedUsername.includes(username));
+        return isResourceCompliant || isNameCompliant || isUsernameCompliant;
       })
       .sort((a, b) => sortTreasuresTableData(a, b, 'name', 'desc'));
   });
@@ -76,10 +86,16 @@
   }
 
   function openRecordEditor(record?: TreasureRecord) {
+    const query = {
+      ...((!record?.id || record.id === 'new') && { groupId: selectedGroup.value }),
+      ...(selectedGroup.value === DEFAULT_GROUP.CARDS && { cardGroup: 'on' }),
+      ...(selectedGroup.value === DEFAULT_GROUP.FAVORITES && { favoriteGroup: 'on' }),
+      ...(selectedGroup.value === DEFAULT_GROUP.RECENT && { recentGroup: 'on' }),
+    };
     router.push({
       name: APP_ROUTES.RECORD,
       params: { id: record?.id || 'new' },
-      ...(!record?.id && { query: { groupId: selectedGroup.value } }),
+      query,
     });
   }
 
@@ -125,10 +141,14 @@
         :class="$style.groupSelectorBtn"
         @click="
           () =>
-            !selectedGroup || selectedGroup === 'favorites' ? openGroupEditor() : openGroupEditor(selectedGroup)
+            !selectedGroup || selectedGroup === DEFAULT_GROUP.FAVORITES
+              ? openGroupEditor()
+              : openGroupEditor(selectedGroup)
         "
       >
-        {{ !selectedGroup || selectedGroup === 'favorites' ? t('list.createGroup') : t('list.editGroup') }}
+        {{
+          !selectedGroup || selectedGroup === DEFAULT_GROUP.FAVORITES ? t('list.createGroup') : t('list.editGroup')
+        }}
       </ui3n-button>
     </div>
 
@@ -139,8 +159,10 @@
           :key="item.id"
           :item="item"
           :sync-process="recordSyncProcess(item.id)"
+          :selected-group="selectedGroup"
           @open="openRecordEditor"
           @set:favorite="setFavorite"
+          @show:images="(v: string[]) => (optionsOfShowingImages = v)"
         />
       </template>
 
@@ -164,6 +186,17 @@
         {{ t('list.create') }}
       </ui3n-button>
     </div>
+
+    <teleport
+      v-if="optionsOfShowingImages"
+      to="#mobile"
+    >
+      <images-slider
+        :image-ids="optionsOfShowingImages"
+        mobile-mode
+        @close="() => (optionsOfShowingImages = null)"
+      />
+    </teleport>
   </section>
 </template>
 

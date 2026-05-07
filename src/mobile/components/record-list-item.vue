@@ -17,20 +17,27 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue';
   import { useI18n } from 'vue-i18n';
+  import { copyToClipboard, generateColor } from '@v1nt1248/3nclient-lib/utils';
   import { Ui3nIcon, Ui3nRipple as vUi3nRipple } from '@v1nt1248/3nclient-lib';
-  import { copyToClipboard, generateColor } from '@/common/utils';
-  import type { SyncType, TreasureRecord } from '@types';
+  import type { SyncType, TreasureRecord, TreasurePasswordRecord, TreasureCardRecord } from '@shared/@types';
+  import { DEFAULT_GROUP } from '@shared/constants';
+  import { useRecordStore } from '@/common/stores/record.store';
+  import ImagesPlaceholder from '@/common/components/images-placeholder.vue';
 
   const props = defineProps<{
     item: TreasureRecord;
     syncProcess?: { type: SyncType; value: number };
+    selectedGroup: string;
   }>();
   const emits = defineEmits<{
     (event: 'open', value: TreasureRecord): void;
     (event: 'set:favorite', value: TreasureRecord): void;
+    (event: 'show:images', value: string[]): void;
   }>();
 
   const { t } = useI18n();
+
+  const { addRecordToRecent } = useRecordStore();
 
   const thresholdX = 20;
   const thresholdY = 10;
@@ -45,9 +52,11 @@
   const isShiftedLeft = ref(false);
 
   const lockChanges = computed(() => !!props.syncProcess);
-  const iconStyle = computed(() => ({
-    backgroundColor: generateColor(props.item.name || props.item.resource),
-  }));
+  const iconStyle = computed(() => {
+    const label = 'images' in props.item ? props.item.resource : props.item.name || props.item.resource;
+
+    return { backgroundColor: generateColor(label) };
+  });
 
   function onClick(evt: MouseEvent) {
     const delta = Math.abs(touchData.value.endX - touchData.value.startX);
@@ -97,13 +106,27 @@
     emits('set:favorite', props.item);
   }
 
-  function copyText(text: string) {
+  async function copyText(text: string) {
     isShiftedLeft.value = false;
     if (lockChanges.value) {
       return;
     }
 
-    return copyToClipboard(text);
+    await copyToClipboard(text);
+
+    if (props.selectedGroup !== DEFAULT_GROUP.RECENT) {
+      await addRecordToRecent(props.item.id);
+    }
+  }
+
+  async function showImages() {
+    if (props.selectedGroup !== DEFAULT_GROUP.RECENT) {
+      await addRecordToRecent(props.item.id);
+    }
+
+    isShiftedLeft.value = false;
+    isShiftedRight.value = false;
+    emits('show:images', (props.item as TreasureCardRecord).images);
   }
 </script>
 
@@ -141,7 +164,7 @@
         :class="$style.icon"
         :style="iconStyle"
       >
-        {{ (item.name || item.resource)[0] }}
+        {{ ((item as TreasurePasswordRecord).name || item.resource)[0] }}
 
         <div
           v-if="item.source"
@@ -156,9 +179,14 @@
       </div>
 
       <div :class="$style.itemInfo">
-        <span :class="$style.name">{{ item.name || item.resource }}</span>
+        <span :class="$style.name">{{ 'images' in item ? item.resource : item.name || item.resource }}</span>
         <span :class="$style.resource">{{ item.resource }}</span>
-        <span :class="$style.username">{{ item.username }}</span>
+        <span
+          v-if="(item as TreasurePasswordRecord).username"
+          :class="$style.username"
+        >
+          {{ (item as TreasurePasswordRecord).username }}
+        </span>
       </div>
 
       <ui3n-icon
@@ -180,34 +208,46 @@
       />
     </div>
 
-    <div :class="$style.copyBlock">
-      <div
-        v-ui3n-ripple
-        :class="$style.copyBlockItem"
-        @click="() => copyText(item.username)"
-      >
-        <ui3n-icon
-          icon="round-content-copy"
-          color="var(--color-icon-table-accent-selected)"
-          size="24"
+    <div :class="[$style.copyBlock, item.type === 'card' && $style.copyBlockCard]">
+      <template v-if="item.type === 'card'">
+        <images-placeholder
+          :images="item.images"
+          :displayed-quantity="2"
+          @click.stop.prevent="() => showImages()"
         />
+      </template>
 
-        <span>{{ t('list.copyUsername') }}</span>
-      </div>
+      <template v-else>
+        <div
+          v-if="(item as TreasurePasswordRecord).username"
+          v-ui3n-ripple
+          :class="$style.copyBlockItem"
+          @click="() => copyText((item as TreasurePasswordRecord).username)"
+        >
+          <ui3n-icon
+            icon="round-content-copy"
+            color="var(--color-icon-table-accent-selected)"
+            size="24"
+          />
 
-      <div
-        v-ui3n-ripple
-        :class="$style.copyBlockItem"
-        @click="() => copyText(item.password)"
-      >
-        <ui3n-icon
-          icon="key-vertical-outline"
-          color="var(--color-icon-table-accent-selected)"
-          size="24"
-        />
+          <span>{{ t('list.copyUsername') }}</span>
+        </div>
 
-        <span>{{ t('list.copyRecord') }}</span>
-      </div>
+        <div
+          v-if="(item as TreasurePasswordRecord).password"
+          v-ui3n-ripple
+          :class="$style.copyBlockItem"
+          @click="() => copyText((item as TreasurePasswordRecord).password)"
+        >
+          <ui3n-icon
+            icon="key-vertical-outline"
+            color="var(--color-icon-table-accent-selected)"
+            size="24"
+          />
+
+          <span>{{ t('list.copyRecord') }}</span>
+        </div>
+      </template>
     </div>
   </div>
 </template>
@@ -236,7 +276,7 @@
 
     &.shiftedLeft {
       .favoriteBlock,
-      .recordListItem,
+      //.recordListItem,
       .copyBlock {
         left: -192px;
       }
@@ -406,6 +446,18 @@
         padding: 0 var(--spacing-s);
         text-align: center;
         color: var(--color-text-table-accent-default);
+      }
+    }
+
+    &.copyBlockCard {
+      padding: 0 var(--spacing-s);
+
+      & > div {
+        --img-placeholder-size: 32px !important;
+
+        span {
+          font-size: var(--font-14) !important;
+        }
       }
     }
   }

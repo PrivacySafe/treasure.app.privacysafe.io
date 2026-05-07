@@ -15,27 +15,30 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { checkServerConnection } from '../check-server-connection.ts';
-import { syncAdopt } from '../sync-adopt.ts';
-import type { TreasureEvent } from '../../../@types/index.ts';
+import { syncUpload } from '../sync-upload.ts';
+import type { TreasureEvent } from '../../../shared/@types';
 
-export async function handleRootBehindStatus({
+export async function handleFolderConflictingStatus({
+  path,
   fs,
-  syncStatus,
   emitEvent,
 }: {
+  path: string;
   fs: web3n.files.WritableFS;
-  syncStatus: web3n.files.SyncStatus;
   emitEvent: (event: TreasureEvent) => void;
-}): Promise<void> {
+}) {
   const isServerConnection = await checkServerConnection(fs);
   if (!isServerConnection) {
-    return;
+    return undefined;
   }
 
-  return syncAdopt({
+  const newVersion = await fs.v?.sync?.absorbRemoteFolderChanges(path, { postfixForNameOverlaps: '_[ keep ]' });
+
+  return syncUpload({
     fs,
-    path: '',
-    opts: { remoteVersion: syncStatus.remote!.latest! },
+    path,
     emitEvent,
+    opts: { uploadVersion: newVersion },
+    immediately: true,
   });
 }

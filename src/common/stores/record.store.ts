@@ -21,10 +21,15 @@ import size from 'lodash/size';
 import keyBy from 'lodash/keyBy';
 import { appTreasureDenoSrv } from '@/common/services/service-provider';
 import { useAppStore } from '@/common/stores/app.store';
-import type { TreasureGroup, TreasureRecord } from '@types';
+import type { TreasureGroup, TreasureRecord } from '@shared/@types';
+import { DEFAULT_GROUP } from '@shared/constants.ts';
+
+const MAX_RECENT_LIST_SIZE = 20;
 
 export const useRecordStore = defineStore('records', () => {
   const { setCommonLoading } = useAppStore();
+
+  const idsOfRecentRecords = ref<string[]>([]);
 
   const records = ref<TreasureRecord[]>([]);
   const groups = ref<Record<string, TreasureGroup>>({});
@@ -35,7 +40,9 @@ export const useRecordStore = defineStore('records', () => {
     Object.values(groups.value).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
   );
 
+  const recentRecords = computed(() => records.value.filter(r => idsOfRecentRecords.value.includes(r.id)));
   const favoritesRecords = computed(() => records.value.filter(r => r.isFavorite));
+  const cardsRecords = computed(() => records.value.filter(r => r.type === 'card'));
 
   const recordsByGroups = computed(() =>
     records.value.reduce(
@@ -52,7 +59,11 @@ export const useRecordStore = defineStore('records', () => {
 
         return res;
       },
-      { favorites: favoritesRecords.value } as Record<string, TreasureRecord[]>,
+      {
+        [DEFAULT_GROUP.RECENT]: recentRecords.value,
+        [DEFAULT_GROUP.FAVORITES]: favoritesRecords.value,
+        [DEFAULT_GROUP.CARDS]: cardsRecords.value,
+      } as Record<string, TreasureRecord[]>,
     ),
   );
 
@@ -89,10 +100,10 @@ export const useRecordStore = defineStore('records', () => {
   function updateRecordList(record: TreasureRecord, removing?: boolean) {
     const index = records.value.findIndex(r => r.id === record.id);
     if (index >= 0) {
-      removing && (records.value.splice(index, 1));
+      removing && records.value.splice(index, 1);
       !removing && (records.value[index] = record);
     } else {
-      !removing && (records.value.push(record));
+      !removing && records.value.push(record);
     }
   }
 
@@ -123,7 +134,11 @@ export const useRecordStore = defineStore('records', () => {
     if (index >= 0) {
       record = records.value.splice(index, 1)[0];
     }
-    record && await appTreasureDenoSrv.deleteRecord(record);
+
+    if (record) {
+      await appTreasureDenoSrv.deleteRecord(record);
+      await removeRecordFromRecent(id);
+    }
   }
 
   async function updateRecord(id: string, data: Partial<TreasureRecord>): Promise<void> {
@@ -137,7 +152,7 @@ export const useRecordStore = defineStore('records', () => {
     const updatedRecord = {
       ...record,
       ...data,
-    };
+    } as TreasureRecord;
 
     const wasSync = await appTreasureDenoSrv.updateRecord(updatedRecord);
     records.value[index] = {
@@ -169,6 +184,39 @@ export const useRecordStore = defineStore('records', () => {
     }
   }
 
+  async function loadRecentRecords() {
+    idsOfRecentRecords.value = await appTreasureDenoSrv.loadRecentFile();
+  }
+
+  function saveRecentRecords() {
+    return appTreasureDenoSrv.saveRecentFile(idsOfRecentRecords.value || []);
+  }
+
+  async function addRecordToRecent(recordId: string) {
+    const index = idsOfRecentRecords.value.findIndex(rId => rId === recordId);
+    if (index === -1) {
+      if (size(idsOfRecentRecords.value) >= MAX_RECENT_LIST_SIZE) {
+        idsOfRecentRecords.value.shift();
+      }
+      idsOfRecentRecords.value.push(recordId);
+    } else {
+      const tmp = cloneDeep(idsOfRecentRecords.value);
+      tmp.splice(index, 1);
+      tmp.push(recordId);
+      idsOfRecentRecords.value = tmp;
+    }
+
+    await saveRecentRecords();
+  }
+
+  async function removeRecordFromRecent(recordId: string) {
+    const index = idsOfRecentRecords.value.findIndex(rId => rId === recordId);
+    if (index >= 0) {
+      idsOfRecentRecords.value.splice(index, 1);
+      await saveRecentRecords();
+    }
+  }
+
   return {
     groups,
     sortedGroups,
@@ -191,5 +239,10 @@ export const useRecordStore = defineStore('records', () => {
     removeRecord,
     updateRecord,
     getAllRecords,
+
+    loadRecentRecords,
+    saveRecentRecords,
+    addRecordToRecent,
+    removeRecordFromRecent,
   };
 });

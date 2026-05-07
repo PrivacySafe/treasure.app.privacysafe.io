@@ -22,7 +22,7 @@ import type {
   AvailableColorTheme,
   AppConfigsInternal,
   SettingsJSON,
-} from '@types';
+} from '@shared/@types';
 
 const resourceName = 'ui-settings';
 const resourceApp = 'launcher.app.privacysafe.io';
@@ -101,11 +101,11 @@ export class SystemSettings implements AppConfigs, AppConfigsInternal {
     return this.file.watch({
       next: obs.next
         ? async event => {
-          if (event.type === 'file-change') {
-            const confs = await this.getAll();
-            obs.next!({ ...confs });
+            if (event.type === 'file-change') {
+              const confs = await this.getAll();
+              obs.next!({ ...confs });
+            }
           }
-        }
         : undefined,
       complete: obs.complete,
       error: obs.error,

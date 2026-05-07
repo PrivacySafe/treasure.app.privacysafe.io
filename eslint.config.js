@@ -63,7 +63,7 @@ export default [
       'no-param-reassign': 'off',
       'no-return-assign': 'off',
       'arrow-parens': ['error', 'as-needed'],
-      'curly': 'error',
+      curly: 'error',
       'object-curly-newline': [
         'error',
         {
@@ -152,6 +152,18 @@ export default [
         {
           allowCoexistClass: true,
           allowCoexistStyle: true,
+        },
+      ],
+      'vue/html-self-closing': [
+        'error',
+        {
+          html: {
+            void: 'always',
+            normal: 'always',
+            component: 'always',
+          },
+          svg: 'always',
+          math: 'always',
         },
       ],
     },

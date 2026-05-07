@@ -16,12 +16,23 @@
 */
 import { SingleProc } from '../shared/processes/single.ts';
 import { randomStr } from '../shared/utils/random-str.ts';
-import { GROUPS_FILE_NAME } from '../shared/constants.ts';
-import type { TreasureGroup, TreasureRecord } from '../@types/common.types.ts';
+import { GROUPS_FILE_NAME, IMAGES_FOLDER, RECENT_FILE_NAME } from '../shared/constants.ts';
+import type { TreasureGroup, TreasureRecord } from '../shared/@types/common.types.ts';
 import type { TreasureFileSrv } from './srv.types.ts';
 
-export async function treasureFileSrv(fs: web3n.files.WritableFS): Promise<TreasureFileSrv> {
+export async function treasureFileSrv(
+  fs: web3n.files.WritableFS,
+  fsLocal: web3n.files.WritableFS,
+): Promise<TreasureFileSrv> {
   const fileProc = new SingleProc();
+
+  async function saveRecentFile(data: string[]): Promise<void> {
+    return fsLocal.writeJSONFile(RECENT_FILE_NAME, data);
+  }
+
+  async function loadRecentFile(): Promise<string[]> {
+    return fsLocal.readJSONFile<string[]>(RECENT_FILE_NAME);
+  }
 
   async function saveFile(data: TreasureRecord | TreasureGroup[], fileName?: string): Promise<string> {
     // console.log('💾 SAVE_FILE => ', fileName, JSON.stringify(data));
@@ -50,7 +61,7 @@ export async function treasureFileSrv(fs: web3n.files.WritableFS): Promise<Treas
       return fileNameUsed;
     } catch (err) {
       w3n.log('error', `Error saving the file ${fileNameUsed}. `, err);
-      throw new Error(`Error saving the file ${fileNameUsed}.`);
+      throw new Error(`Error saving the file ${fileNameUsed}.`, { cause: err });
     }
   }
 
@@ -87,7 +98,27 @@ export async function treasureFileSrv(fs: web3n.files.WritableFS): Promise<Treas
       );
     } catch (err) {
       w3n.log('error', `Error getting file ${fileName}. `, err);
-      throw new Error(`Error getting file ${fileName}`);
+      throw new Error(`Error getting file ${fileName}`, { cause: err });
+    }
+  }
+
+  async function saveImage(data: { bytes: Uint8Array; id?: string }): Promise<string> {
+    const fileId = data.id || randomStr(20);
+    try {
+      await fileProc.startOrChain(async () => await fs.writeBytes(`${IMAGES_FOLDER}/${fileId}`, data.bytes));
+      return fileId;
+    } catch (err) {
+      w3n.log('error', `Error saving the file ${fileId}. `, err);
+      throw new Error(`Error saving the file ${fileId}.`, { cause: err });
+    }
+  }
+
+  async function loadImage(fileId: string): Promise<Uint8Array | undefined> {
+    try {
+      return fileProc.startOrChain(async () => fs.readBytes(`${IMAGES_FOLDER}/${fileId}`));
+    } catch (err) {
+      w3n.log('error', `Error getting image file ${fileId}. `, err);
+      throw new Error(`Error getting image file ${fileId}`, { cause: err });
     }
   }
 
@@ -100,19 +131,23 @@ export async function treasureFileSrv(fs: web3n.files.WritableFS): Promise<Treas
       }
     } catch (err) {
       w3n.log('error', `Error deleting file ${fileName}. `, err);
-      throw new Error(`Error deleting file ${fileName}`);
+      throw new Error(`Error deleting file ${fileName}`, { cause: err });
     }
   }
 
-  async function deleteFiles(currentRecordFileNames: string[]): Promise<void> {
-    const promiseToPerformWorks = currentRecordFileNames.map(fileName => deleteFile(fileName));
+  async function deleteFiles(currentFileNames: string[]): Promise<void> {
+    const promiseToPerformWorks = currentFileNames.map(fileName => deleteFile(fileName));
     await Promise.allSettled(promiseToPerformWorks);
   }
 
   return {
+    loadRecentFile,
+    saveRecentFile,
     saveFile,
+    saveImage,
     updateFile,
     getFile,
+    loadImage,
     deleteFile,
     deleteFiles,
   };

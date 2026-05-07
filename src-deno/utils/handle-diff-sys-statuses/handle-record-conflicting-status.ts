@@ -18,7 +18,7 @@ import { checkServerConnection } from '../check-server-connection.ts';
 import { randomStr } from '../../../shared/utils/random-str.ts';
 import { syncUpload } from '../sync-upload.ts';
 import type { TreasureFileSrv } from '../../srv.types.ts';
-import type { TreasureEvent, TreasureRecord } from '../../../@types';
+import type { TreasureEvent, TreasureRecord } from '../../../shared/@types';
 
 export async function handleRecordConflictingStatus({
   fs,

@@ -16,13 +16,12 @@
 */
 import { computed, ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { SyncType } from '@types';
+import type { SyncType } from '@shared/@types';
 
 export const useSyncStore = defineStore('sync', () => {
   const syncProcesses = ref<Record<string, { type: SyncType; value: number }>>({});
 
   const isSyncRunning = computed(() => Object.keys(syncProcesses.value).length > 0);
-
 
   function addRecordToSyncList(id: string, type: SyncType) {
     syncProcesses.value[id] = { type, value: 0 };
@@ -33,7 +32,7 @@ export const useSyncStore = defineStore('sync', () => {
     delete syncProcesses.value[id];
   }
 
-  function updateSyncListRecord(id: string, type: SyncType ,value: number) {
+  function updateSyncListRecord(id: string, type: SyncType, value: number) {
     syncProcesses.value[id] = { type, value };
   }
 

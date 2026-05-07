@@ -19,11 +19,15 @@
   import { useRoute, useRouter } from 'vue-router';
   import { storeToRefs } from 'pinia';
   import { DIALOGS_KEY, NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
-  import { Ui3nButton, Ui3nInput, Ui3nProgressCircular, Ui3nSelector } from '@v1nt1248/3nclient-lib';
+  import { Ui3nButton, Ui3nProgressCircular } from '@v1nt1248/3nclient-lib';
   import { APP_ROUTES } from '@/common/constants';
   import { useRecordStore } from '@/common/stores/record.store';
   import { useRecord } from '@/common/composables/use-record';
+  import type { ProcessedImage, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
+  import RecordEditor from '@/common/components/record-editor.vue';
+  import CardEditor from '@/common/components/card-editor.vue';
   import ConfirmationDialog from '@/common/components/dialogs/confirmation-dialog.vue';
+  import { DEFAULT_GROUP } from '@shared/constants.ts';
 
   const route = useRoute();
   const router = useRouter();
@@ -37,33 +41,31 @@
 
   const recordId = computed(() => (route.params?.id || 'new') as string);
   const groupId = computed(() => (route.query?.groupId || '') as string);
+  const isFromCardGroup = computed(() => (route.query?.cardGroup || '') === 'on');
+  const isFromFavoriteGroup = computed(() => (route.query?.favoriteGroup || '') === 'on');
+  const isFromRecentGroup = computed(() => (route.query?.recentGroup || '') === 'on');
 
   const record = recordId.value === 'new' ? undefined : records.value.find(r => r.id === recordId.value);
 
-  const {
-    t,
-    isLoading,
-    sortedGroups,
-    recordData,
-    resourceRules,
-    usernameRules,
-    passwordRules,
-    errorMessages,
-    showPassword,
-    isFormValid,
-    isChanged,
-    handleInput,
-    updateValidation,
-    generatePassword,
-  } = useRecord({
-    record,
-    selectedGroup: groupId.value,
-  });
+  const { t, isLoading, sortedGroups, recordData, images, isFormValid, isChanged, switchBetweenPasswordAndCard } =
+    useRecord({
+      record,
+      selectedGroup: groupId.value,
+    });
 
   function backToList() {
+    const query = {
+      ...(isFromCardGroup.value && { group: DEFAULT_GROUP.CARDS }),
+      ...(isFromFavoriteGroup.value && { group: DEFAULT_GROUP.FAVORITES }),
+      ...(isFromRecentGroup.value && { group: DEFAULT_GROUP.RECENT }),
+      ...(!(isFromCardGroup.value || isFromFavoriteGroup.value || isFromRecentGroup.value) && {
+        group: recordData.value.group,
+      }),
+    };
+
     return router.push({
       name: APP_ROUTES.RECORD_LIST,
-      query: { group: recordData.value.group },
+      query,
     });
   }
 
@@ -83,12 +85,15 @@
 
       await backToList();
     } catch (err) {
-      console.error(`Error saving '${recordData.value!.name || recordData.value!.resource}' record. `, err);
+      console.error(
+        `Error saving '${(recordData.value! as TreasurePasswordRecord).name || recordData.value!.resource}' record. `,
+        err,
+      );
       $createNotice({
         type: 'error',
         content: t('list.notifications.error.saving', {
           entity: 'record',
-          name: recordData.value!.name || recordData.value!.resource,
+          name: (recordData.value! as TreasurePasswordRecord).name || recordData.value!.resource,
         }),
       });
     } finally {
@@ -121,12 +126,15 @@
 
         await backToList();
       } catch (err) {
-        console.error(`Error deleting '${recordData.value!.name || recordData.value!.resource}' record. `, err);
+        console.error(
+          `Error deleting '${(recordData.value! as TreasurePasswordRecord).name || recordData.value!.resource}' record. `,
+          err,
+        );
         $createNotice({
           type: 'error',
           content: t('list.notifications.error.deleting', {
             entity: 'record',
-            name: recordData.value!.name || recordData.value!.resource,
+            name: (recordData.value! as TreasurePasswordRecord).name || recordData.value!.resource,
           }),
         });
       } finally {
@@ -137,7 +145,7 @@
 </script>
 
 <template>
-  <div :class="[$style.record, recordId !== 'new' && $style.deletable]">
+  <div :class="$style.record">
     <div :class="$style.recordToolbar">
       <ui3n-button
         type="icon"
@@ -154,93 +162,28 @@
       <span :class="$style.empty" />
     </div>
 
-    <div :class="[$style.recordBody, isLoading && $style.blurry]">
-      <div :class="$style.row">
-        <ui3n-input
-          :model-value="recordData.name || ''"
-          :label="t('recordDialog.form.fields.name.label')"
-          :placeholder="t('recordDialog.form.fields.name.placeholder')"
-          :disabled="isLoading"
-          @update:model-value="v => handleInput('name', v)"
-        />
-      </div>
+    <div :class="$style.recordBody">
+      <card-editor
+        v-if="recordData.type === 'card'"
+        :record="recordData"
+        :sorted-groups="sortedGroups"
+        :images="images"
+        mobile-mode
+        @update:record="(v: TreasureRecord) => (recordData = v)"
+        @update:images="(v: ProcessedImage[]) => (images = v)"
+        @update:image="(v: { index: number; data: ProcessedImage }) => (images[v.index] = v.data)"
+        @update:validation-flag="(v: boolean) => (isFormValid = v)"
+      />
 
-      <div :class="$style.row">
-        <ui3n-input
-          :model-value="recordData.resource"
-          :label="`${t('recordDialog.form.fields.resource.label')}*`"
-          :placeholder="t('recordDialog.form.fields.resource.placeholder')"
-          :rules="resourceRules"
-          :display-state-mode="errorMessages.resource ? 'error' : undefined"
-          :display-state-message="errorMessages.resource"
-          :disabled="isLoading"
-          @update:model-value="v => handleInput('resource', v)"
-          @update:valid="v => updateValidation('resource', v)"
-        />
-      </div>
-
-      <div :class="$style.row">
-        <ui3n-input
-          :model-value="recordData.username"
-          :label="`${t('recordDialog.form.fields.username.label')}*`"
-          :placeholder="t('recordDialog.form.fields.username.placeholder')"
-          :rules="usernameRules"
-          :display-state-mode="errorMessages.username ? 'error' : undefined"
-          :display-state-message="errorMessages.username"
-          :disabled="isLoading"
-          @update:model-value="v => handleInput('username', v)"
-          @update:valid="v => updateValidation('username', v)"
-        />
-      </div>
-
-      <div :class="$style.row">
-        <div :class="$style.wrapper">
-          <ui3n-input
-            :model-value="recordData.password"
-            :type="showPassword ? 'text' : 'password'"
-            :label="`${t('recordDialog.form.fields.password.label')}*`"
-            :placeholder="t('recordDialog.form.fields.password.placeholder')"
-            :rules="passwordRules"
-            :disabled="isLoading"
-            :class="$style.passwordField"
-            @update:model-value="v => handleInput('password', v)"
-            @update:valid="v => updateValidation('password', v)"
-          />
-
-          <ui3n-button
-            type="icon"
-            size="small"
-            color="var(--color-bg-control-secondary-default)"
-            :icon="showPassword ? 'eye-off-outline' : 'eye-outline'"
-            icon-color="var(--color-icon-control-accent-default)"
-            icon-size="16"
-            :class="$style.showBtn"
-            @click.stop.prevent="showPassword = !showPassword"
-          />
-        </div>
-
-        <ui3n-button
-          block
-          type="custom"
-          color="var(--color-bg-button-tritery-default)"
-          text-color="var(--color-text-button-tritery-default)"
-          @click.stop.prevent="generatePassword"
-        >
-          {{ t('recordDialog.form.btns.generate') }}
-        </ui3n-button>
-      </div>
-
-      <div :class="$style.row">
-        <ui3n-selector
-          :model-value="recordData.group"
-          :label="t('recordDialog.form.fields.group.label')"
-          :placeholder="t('recordDialog.form.fields.group.placeholder')"
-          :items="sortedGroups"
-          item-display="name"
-          clearable
-          @update:model-value="v => handleInput('group', v || null)"
-        />
-      </div>
+      <record-editor
+        v-else
+        :record="recordData"
+        :records="records"
+        :sorted-groups="sortedGroups"
+        :is-loading="isLoading"
+        @update:record="(v: TreasureRecord) => (recordData = v)"
+        @update:validation-flag="(v: boolean) => (isFormValid = v)"
+      />
     </div>
 
     <div :class="$style.recordActions">
@@ -256,6 +199,18 @@
         @click="deleteRecord"
       >
         {{ t('recordDialog.btn.delete') }}
+      </ui3n-button>
+
+      <ui3n-button
+        v-if="recordId === 'new'"
+        type="tertiary"
+        @click="switchBetweenPasswordAndCard"
+      >
+        {{
+          recordData.type === 'card'
+            ? t('recordDialog.btn.switch_to_password')
+            : t('recordDialog.btn.switch_to_card')
+        }}
       </ui3n-button>
 
       <ui3n-button
@@ -290,11 +245,17 @@
     inset: 0;
     background-color: var(--color-bg-block-primary-default);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
 
     .recordToolbar {
       display: flex;
       width: 100%;
       height: var(--record-toolbar-height);
+      min-height: var(--record-toolbar-height);
+      max-height: var(--record-toolbar-height);
       justify-content: space-between;
       align-items: center;
       padding: 0 var(--spacing-m) 0 var(--spacing-s);
@@ -317,64 +278,21 @@
     .recordBody {
       position: relative;
       width: 100%;
-      height: calc(100% - var(--record-toolbar-height) - var(--record-actions-height) - var(--spacing-xs));
-      padding: var(--spacing-m) var(--spacing-m) 0 var(--spacing-m);
-      overflow-x: hidden;
-      overflow-y: auto;
-
-      &.blurry {
-        filter: blur(2px);
-      }
-
-      .row {
-        position: relative;
-        width: 100%;
-        margin-bottom: var(--spacing-s);
-
-        .wrapper {
-          position: relative;
-          width: 100%;
-        }
-
-        .passwordField {
-          input {
-            padding-right: var(--spacing-l);
-          }
-        }
-
-        .showBtn {
-          position: absolute;
-          right: 4px;
-          top: 24px;
-        }
-
-        .groupSelector {
-          border-radius: 4px;
-          background-color: var(--color-bg-control-secondary-default);
-        }
-      }
+      flex-grow: 1;
     }
 
     .recordActions {
       display: flex;
-      width: 100%;
-      height: var(--record-actions-height);
-      padding: 0 var(--spacing-m);
-      justify-content: stretch;
+      flex-direction: column;
+      min-height: var(--record-actions-height);
+      padding: var(--spacing-m);
+      justify-content: flex-start;
       align-items: center;
-    }
+      row-gap: var(--spacing-xs);
 
-    &.deletable {
-      .recordBody {
-        height: calc(100% - var(--record-toolbar-height) - var(--record-ext-actions-height) - var(--spacing-xs));
-      }
-
-      .recordActions {
-        height: var(--record-ext-actions-height);
-        flex-direction: column;
-        justify-content: center;
-        align-items: stretch;
-        row-gap: var(--spacing-s);
+      button {
+        padding-right: var(--spacing-m);
+        padding-left: var(--spacing-m);
       }
     }
 

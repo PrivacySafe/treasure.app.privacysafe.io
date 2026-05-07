@@ -25,6 +25,11 @@ export async function initializeServices() {
     appTreasureDenoSrv = makeServiceCaller(srv, [
       'rewriteGroups',
       'getAllTreasureGroups',
+      'loadRecentFile',
+      'saveRecentFile',
+      'loadImage',
+      'saveImage',
+      'deleteImages',
       'addRecord',
       'updateRecord',
       'deleteRecord',

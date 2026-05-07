@@ -21,32 +21,13 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": [
-      "vite/client",
-      "@types/node",
-      "@types/lodash",
-      "@types/jasmine"
-    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@shared/*": ["shared/*"],
-      "@deno/*": ["src-deno/*"]
-    },
-    "plugins": [{
-      "name": "@vuedx/typescript-plugin-vue"
-    }]
+      "@/*": ["./src/*"],
+      "@shared/*": ["./shared/*"],
+      "@deno/*": ["./src-deno/*"]
+    }
   },
-  "include": [
-    "vite.config.ts",
-    "src/**/*",
-    "shared/**/*",
-    "src-deno/**/*",
-    "@types/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "public",
-    "app"
-  ]
+  "include": ["./vite.config.ts", "./src/**/*", "./shared/**/*", "./src-deno/**/*", "./@types/**/*"],
+  "exclude": ["node_modules", "public", "app"]
 }

@@ -15,17 +15,18 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { checkServerConnection } from '../check-server-connection.ts';
+import { syncUpload } from '../sync-upload.ts';
 import { syncDownload } from '../sync-download.ts';
 import type { TreasureEvent } from '../../../shared/@types';
 
-export async function handleFileSyncedStatus({
+export async function handleImageConflictingStatus({
   fs,
-  path,
+  fileName,
   syncStatus,
   emitEvent,
 }: {
   fs: web3n.files.WritableFS;
-  path: string;
+  fileName: string;
   syncStatus: web3n.files.SyncStatus;
   emitEvent: (event: TreasureEvent) => void;
 }) {
@@ -34,12 +35,29 @@ export async function handleFileSyncedStatus({
     return undefined;
   }
 
-  const isFileOnFs = await fs.v?.sync?.isRemoteVersionOnDisk(path, syncStatus.synced!.latest!);
-  if (isFileOnFs !== 'complete') {
-    return syncDownload({
+  const remoteFileStat = await fs.v?.stat(fileName);
+  if (!remoteFileStat) {
+    throw `The remote file ${fileName} is missing`;
+  }
+  const fileStat = await fs.stat(fileName);
+  const remoteFileMtime = remoteFileStat.mtime ? new Date(remoteFileStat!.mtime).getTime() : Date.now();
+  const fileMtime = fileStat?.mtime ? new Date(fileStat.mtime).getTime() : Date.now();
+
+  if (fileMtime > remoteFileMtime) {
+    await syncUpload({
       fs,
-      path,
-      version: syncStatus.synced!.latest!,
+      path: fileName,
+      emitEvent,
+      opts: {
+        uploadVersion: syncStatus.remote!.latest! + 1,
+      },
+    });
+  } else {
+    await fs.v?.sync?.adoptRemote(fileName, { remoteVersion: syncStatus.remote!.latest });
+    await syncDownload({
+      fs,
+      path: fileName,
+      version: syncStatus.remote!.latest!,
       emitEvent,
     });
   }

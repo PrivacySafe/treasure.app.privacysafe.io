@@ -14,16 +14,21 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import type { TreasureEvent } from '../../@types/common.types.ts';
+import type { TreasureEvent } from '../../shared/@types/common.types.ts';
 
-export async function handleRootFolderChangeSyncStatus(
-  fs: web3n.files.WritableFS,
-  emitTreasureEvent: (event: TreasureEvent) => void,
-) {
+export async function handleFolderChangeSyncStatus({
+  path,
+  fs,
+  emitTreasureEvent,
+}: {
+  path: string;
+  fs: web3n.files.WritableFS;
+  emitTreasureEvent: (event: TreasureEvent) => void;
+}) {
   try {
-    const folderSyncStatus = await fs.v?.sync?.status('');
+    const folderSyncStatus = await fs.v?.sync?.status(path);
     // console.log(
-    //   '📥 HANDLE_ROOT_FOLDER_CHANGE_SYNC_STATUS => ',
+    //   '📥 HANDLE_FOLDER_CHANGE_SYNC_STATUS => ',
     //   folderSyncStatus ? JSON.stringify(folderSyncStatus) : '👎',
     // );
 
@@ -34,7 +39,7 @@ export async function handleRootFolderChangeSyncStatus(
             event: 'sync:start',
             payload: { path: 'root', type: 'download' },
           });
-          const diff = await fs.v?.sync?.diffCurrentAndRemoteFolderVersions('');
+          const diff = await fs.v?.sync?.diffCurrentAndRemoteFolderVersions(path);
           const newFiles: string[] =
             diff &&
             diff.added &&
@@ -52,9 +57,9 @@ export async function handleRootFolderChangeSyncStatus(
               ? [...diff.removed.inRemote]
               : [];
 
-          await fs.v?.sync?.adoptRemote('', { remoteVersion: folderSyncStatus.remote!.latest });
+          await fs.v?.sync?.adoptRemote(path, { remoteVersion: folderSyncStatus.remote!.latest });
 
-          if (newFiles.length > 0) {
+          if (!path && newFiles.length > 0) {
             emitTreasureEvent({
               event: 'add:record',
               payload: {
@@ -63,7 +68,7 @@ export async function handleRootFolderChangeSyncStatus(
             });
           }
 
-          if (deletedFiles.length > 0) {
+          if (!path && deletedFiles.length > 0) {
             emitTreasureEvent({
               event: 'remove:record',
               payload: {
@@ -74,7 +79,7 @@ export async function handleRootFolderChangeSyncStatus(
 
           emitTreasureEvent({
             event: 'sync:end',
-            payload: { path: 'root', type: 'download' },
+            payload: { path: path || 'root', type: 'download' },
           });
           break;
         }

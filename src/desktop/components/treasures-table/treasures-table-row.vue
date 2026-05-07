@@ -17,22 +17,29 @@
 <script setup lang="ts">
   import { computed } from 'vue';
   import { useI18n } from 'vue-i18n';
+  import { copyToClipboard, generateColor } from '@v1nt1248/3nclient-lib/utils';
   import { Ui3nIcon, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
-  import { copyToClipboard, generateColor } from '@/common/utils';
-  import type { SyncType, TreasureRecord } from '@types';
+  import type { SyncType, TreasureCardRecord, TreasureRecord } from '@shared/@types';
+  import { useRecordStore } from '@/common/stores/record.store';
   import RecordSyncStatus from '@/common/components/record-sync-status/record-sync-status.vue';
+  import ImagesPlaceholder from '@/common/components/images-placeholder.vue';
+  import { DEFAULT_GROUP } from '@shared/constants.ts';
 
   const props = defineProps<{
     row: TreasureRecord;
     columnStyle?: Record<string, Record<string, string>>;
     syncProcess?: { type: SyncType; value: number };
+    selectedGroup: string;
   }>();
   const emits = defineEmits<{
     (event: 'open', value: TreasureRecord): void;
     (event: 'set:favorite', value: TreasureRecord): void;
+    (event: 'show:images', value: string[]): void;
   }>();
 
   const { t } = useI18n();
+
+  const { addRecordToRecent } = useRecordStore();
 
   const lockChanges = computed(() => !!props.syncProcess);
 
@@ -43,6 +50,25 @@
   function getFieldStyle(field: keyof TreasureRecord | 'sync'): Record<string, string> {
     const style = props.columnStyle ? props.columnStyle[field] || { width: 'auto' } : { width: 'auto' };
     return { width: style.width, minWidth: style.width };
+  }
+
+  async function copyValue(value: string) {
+    if (lockChanges.value) {
+      return;
+    }
+
+    await copyToClipboard(value);
+
+    if (props.selectedGroup !== DEFAULT_GROUP.RECENT) {
+      await addRecordToRecent(props.row.id);
+    }
+  }
+
+  async function showImages() {
+    if (props.selectedGroup !== DEFAULT_GROUP.RECENT) {
+      await addRecordToRecent(props.row.id);
+    }
+    emits('show:images', (props.row as TreasureCardRecord).images);
   }
 </script>
 
@@ -77,7 +103,12 @@
 
       <div :class="$style.nameInfo">
         <span :class="$style.nameText">{{ row.name || row.resource }}</span>
-        <span :class="$style.resource">{{ row.resource }}</span>
+        <span
+          v-if="row.name"
+          :class="$style.resource"
+        >
+          {{ row.resource }}
+        </span>
       </div>
     </div>
 
@@ -95,32 +126,43 @@
       :class="$style.username"
       :style="getFieldStyle('username')"
     >
-      <span :class="$style.usernamePlaceholder">
-        {{ row.username }}
-      </span>
+      <template v-if="row.type === 'card'">
+        <images-placeholder
+          :images="row.images"
+          @click.stop.prevent="() => showImages()"
+        />
+      </template>
 
-      <button
-        :class="$style.usernameValue"
-        @click.stop.prevent="() => !lockChanges && copyToClipboard(row.username)"
-      >
-        <span :class="$style.usernameTextNormal">{{ row.username }}</span>
-        <span :class="$style.usernameTextActive">{{ t('treasuresTable.row.copiedBtn') }}</span>
-      </button>
+      <template v-else>
+        <span :class="$style.usernamePlaceholder">
+          {{ row.username }}
+        </span>
+
+        <button
+          :class="$style.usernameValue"
+          @click.stop.prevent="() => copyValue(row.username!)"
+        >
+          <span :class="$style.usernameTextNormal">{{ row.username }}</span>
+          <span :class="$style.usernameTextActive">{{ t('treasuresTable.row.copiedBtn') }}</span>
+        </button>
+      </template>
     </div>
 
     <div
       :class="$style.password"
       :style="getFieldStyle('password')"
     >
-      <span :class="$style.passwordPlaceholder">✭✭✭✭✭✭✭✭✭✭</span>
+      <template v-if="row.type !== 'card'">
+        <span :class="$style.passwordPlaceholder">✭✭✭✭✭✭✭✭✭✭</span>
 
-      <button
-        :class="$style.passwordValue"
-        @click.stop.prevent="() => !lockChanges && copyToClipboard(row.password)"
-      >
-        <span :class="$style.passwordTextNormal">✭✭✭✭✭✭✭✭✭✭</span>
-        <span :class="$style.passwordTextActive">{{ t('treasuresTable.row.copiedBtn') }}</span>
-      </button>
+        <button
+          :class="$style.passwordValue"
+          @click.stop.prevent="() => copyValue(row.password!)"
+        >
+          <span :class="$style.passwordTextNormal">✭✭✭✭✭✭✭✭✭✭</span>
+          <span :class="$style.passwordTextActive">{{ t('treasuresTable.row.copiedBtn') }}</span>
+        </button>
+      </template>
     </div>
 
     <ui3n-icon

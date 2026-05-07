@@ -18,7 +18,8 @@
   import { ref } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { Nullable, Ui3nButton, Ui3nIcon, Ui3nClickOutside } from '@v1nt1248/3nclient-lib';
-  import type { TreasureGroup } from '@types';
+  import { DEFAULT_GROUPS } from '@shared/constants';
+  import type { TreasureGroup } from '@shared/@types';
 
   const vUi3nClickOutside = Ui3nClickOutside;
 
@@ -89,35 +90,28 @@
     </div>
 
     <div :class="$style.list">
-      <div
-        :class="[$style.filter, !selectedGroup && $style.filterSelected]"
-        @click.stop.prevent="emits('select', '')"
+      <template
+        v-for="group in DEFAULT_GROUPS"
+        :key="group.id"
       >
-        <ui3n-icon
-          icon="round-home"
-          :color="
-            !selectedGroup
-              ? 'var(--color-icon-control-accent-default)'
-              : 'var(--color-icon-control-secondary-default)'
-          "
-        />
-        <span>{{ t('list.all') }}</span>
-      </div>
-
-      <div
-        :class="[$style.filter, selectedGroup === 'favorites' && $style.filterSelected]"
-        @click.stop.prevent="emits('select', 'favorites')"
-      >
-        <ui3n-icon
-          icon="round-bookmark"
-          :color="
-            selectedGroup === 'favorites'
-              ? 'var(--color-icon-control-accent-default)'
-              : 'var(--color-icon-control-secondary-default)'
-          "
-        />
-        <span>{{ t('list.favorites') }}</span>
-      </div>
+        <div
+          :class="[
+            $style.filter,
+            ((!group.id && !selectedGroup) || group.id === selectedGroup) && $style.filterSelected,
+          ]"
+          @click.stop.prevent="emits('select', group.id)"
+        >
+          <ui3n-icon
+            :icon="group.icon"
+            :color="
+              (!group.id && !selectedGroup) || group.id === selectedGroup
+                ? 'var(--color-icon-control-accent-default)'
+                : 'var(--color-icon-control-secondary-default)'
+            "
+          />
+          <span>{{ t(group.title) }}</span>
+        </div>
+      </template>
 
       <div
         v-for="gr in groups"
@@ -125,7 +119,7 @@
         :key="gr.id"
         :class="[$style.filter, selectedGroup === gr.id && $style.filterSelected]"
         @click="emits('select', gr.id)"
-        @click.right="ev => onGroupClick(ev, gr.id)"
+        @click.right="(ev: MouseEvent) => onGroupClick(ev, gr.id)"
       >
         <ui3n-icon
           icon="group"

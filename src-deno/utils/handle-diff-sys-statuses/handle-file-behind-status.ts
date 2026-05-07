@@ -17,7 +17,7 @@
 import { checkServerConnection } from '../check-server-connection.ts';
 import { syncDownload } from '../sync-download.ts';
 import { syncAdopt } from '../sync-adopt.ts';
-import type { TreasureEvent } from '../../../@types/index.ts';
+import type { TreasureEvent } from '../../../shared/@types';
 
 export async function handleFileBehindStatus({
   fs,

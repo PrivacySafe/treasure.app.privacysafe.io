@@ -28,7 +28,7 @@
   } from '@v1nt1248/3nclient-lib';
   import { useGroup } from '@/common/composables/use-group';
   import { removeWhitespaceInString } from '@shared/utils/remove-whitespace-in-string';
-  import type { TreasureGroup } from '@types';
+  import type { TreasureGroup } from '@shared/@types';
   import ConfirmationDialog from '@/common/components/dialogs/confirmation-dialog.vue';
 
   const newGroupData: TreasureGroup = {

@@ -14,7 +14,7 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import type { TreasureEvent } from '../../@types/common.types.ts';
+import type { TreasureEvent } from '../../shared/@types/common.types.ts';
 
 export async function syncUpload({
   fs,

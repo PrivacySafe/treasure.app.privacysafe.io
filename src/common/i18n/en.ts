@@ -23,6 +23,10 @@ export const en = {
       online: 'Online',
       offline: 'Offline',
     },
+    btn: {
+      close: 'Close',
+      apply_crop: 'Apply crop',
+    },
   },
   list: {
     create: 'New Record',
@@ -33,6 +37,8 @@ export const en = {
     copyUsername: 'Copy Username',
     copyRecord: 'Copy Record',
     all: 'All Records',
+    recent: 'Recent',
+    cards: 'Custom Cards',
     favorites: 'Favorites',
     search: 'Search records',
     noData: 'No records here',
@@ -53,7 +59,9 @@ export const en = {
   recordDialog: {
     title: {
       add: 'Add New Record',
+      add_card: 'Add New Card',
       edit: 'The Record Details',
+      edit_card: 'The Card Details',
     },
     btn: {
       close: 'Close',
@@ -61,6 +69,8 @@ export const en = {
       discard: 'Discard',
       save: 'Save Changes',
       delete: 'Delete The Record',
+      switch_to_password: 'Switch to Password Record',
+      switch_to_card: 'Switch to Card',
     },
     form: {
       fields: {
@@ -89,9 +99,25 @@ export const en = {
           label: 'Group',
           placeholder: 'Select the group',
         },
+        cardName: {
+          label: 'Card name',
+          placeholder: 'Enter the current card name',
+          required: 'The card name field cannot be empty. ',
+          unique: 'A card with the with the same name already exists. ',
+        },
       },
       btns: {
         generate: 'Generate password',
+      },
+      image: {
+        upload_btn: 'Upload images',
+        upload_area: 'Click this area to upload images',
+        info: 'No more than 10 image files of supported formats (png, jpeg, jpg)',
+        uploading: 'Uploading',
+        message: {
+          unsupported: 'These are unsupported files: {list}',
+          limit: 'The total number of images will exceed the allowed limit. Some new images will not be uploaded.',
+        },
       },
     },
   },
@@ -137,7 +163,8 @@ export const en = {
     header: {
       name: 'Name',
       sync: 'Sync',
-      username: 'Username',
+      username: 'Username / Photo',
+      photo: 'Photo',
       password: 'Password',
     },
     nodata: 'No records in current group.',
