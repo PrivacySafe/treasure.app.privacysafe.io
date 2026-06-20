@@ -18,3 +18,5 @@ export * from './ui-settings';
 export * from './for-images';
 export * from './create-image-thumbnail';
 export * from './generate-unique-img-placeholder';
+export * from './for-record-list';
+

@@ -19,11 +19,11 @@
   import { useI18n } from 'vue-i18n';
   import { copyToClipboard, generateColor } from '@v1nt1248/3nclient-lib/utils';
   import { Ui3nIcon, Ui3nTooltip } from '@v1nt1248/3nclient-lib';
-  import type { SyncType, TreasureCardRecord, TreasureRecord } from '@shared/@types';
+  import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants.ts';
+  import type { SyncType, TreasureBankCardRecord, TreasureCardRecord, TreasureRecord } from '@shared/@types';
   import { useRecordStore } from '@/common/stores/record.store';
   import RecordSyncStatus from '@/common/components/record-sync-status/record-sync-status.vue';
   import ImagesPlaceholder from '@/common/components/images-placeholder.vue';
-  import { DEFAULT_GROUP } from '@shared/constants.ts';
 
   const props = defineProps<{
     row: TreasureRecord;
@@ -42,6 +42,18 @@
   const { addRecordToRecent } = useRecordStore();
 
   const lockChanges = computed(() => !!props.syncProcess);
+
+  const rowResource = computed(() => {
+    if ('exp' in (props.row as TreasureBankCardRecord)) {
+      const itemResourceParsed = props.row.resource.split(' ');
+      const updatedResourceData = itemResourceParsed
+        .map((part, index) => (index === 0 || index === itemResourceParsed.length - 1 ? part : '****'))
+        .join(' ');
+      return `${updatedResourceData}`;
+    }
+
+    return props.row.resource;
+  });
 
   const nameIconStyle = computed(() => ({
     backgroundColor: generateColor(props.row.name || props.row.resource),
@@ -104,10 +116,42 @@
       <div :class="$style.nameInfo">
         <span :class="$style.nameText">{{ row.name || row.resource }}</span>
         <span
-          v-if="row.name"
+          v-if="row.resource"
           :class="$style.resource"
         >
-          {{ row.resource }}
+          <template v-if="row.type === RECORD_TYPE.BANK_CARD">
+            <span :class="[$style.cardField, $style.cardNumber]">
+              <span :class="$style.cardFieldPlaceholder">
+                {{ rowResource }}
+              </span>
+
+              <button
+                :class="$style.cardFieldValue"
+                @click.stop.prevent="() => copyValue(row.resource!)"
+              >
+                <span :class="$style.cardFieldTextNormal">{{ rowResource }}</span>
+                <span :class="$style.cardFieldTextActive">{{ t('treasuresTable.row.copiedBtn') }}</span>
+              </button>
+            </span>
+
+            <span :class="[$style.cardField, $style.cardExp]">
+              <span :class="$style.cardFieldPlaceholder">
+                {{ (row as TreasureBankCardRecord).exp }}
+              </span>
+
+              <button
+                :class="$style.cardFieldValue"
+                @click.stop.prevent="() => copyValue((row as TreasureBankCardRecord).exp)"
+              >
+                <span :class="$style.cardFieldTextNormal">{{ (row as TreasureBankCardRecord).exp }}</span>
+                <span :class="$style.cardFieldTextActive">{{ t('treasuresTable.row.copiedBtn') }}</span>
+              </button>
+            </span>
+          </template>
+
+          <template v-else>
+            {{ rowResource }}
+          </template>
         </span>
       </div>
     </div>
@@ -272,10 +316,83 @@
       }
 
       .resource {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
         font-size: var(--font-12);
         font-weight: 600;
-        line-height: var(--font-16);
         color: var(--color-text-table-secondary-default);
+        column-gap: var(--spacing-m);
+
+        .cardField {
+          --car-field-padding: 2px var(--spacing-xs);
+
+          width: fit-content;
+          transition: all 0.25s ease-in-out;
+
+          &.cardNumber {
+            min-width: 128px;
+          }
+
+          &.cardExp {
+            min-width: 48px;
+          }
+
+          .cardFieldPlaceholder {
+            display: block;
+            line-height: 1;
+            padding: var(--car-field-padding);
+          }
+
+          .cardFieldValue {
+            display: none;
+          }
+
+          &:hover {
+            .cardFieldPlaceholder {
+              display: none;
+            }
+
+            .cardFieldValue {
+              display: block;
+              position: relative;
+              width: 100%;
+              padding: var(--car-field-padding);
+              color: var(--color-text-table-primary-default);
+              background-color: var(--color-bg-table-cell-default);
+              border-radius: var(--spacing-xs);
+              text-align: left;
+              border: none;
+              outline: none;
+              font-family: Inter, system-ui, sans-serif;
+              font-size: var(--font-12);
+              font-weight: 600;
+              line-height: 1;
+              cursor: pointer;
+
+              .cardFieldTextNormal {
+                display: block;
+              }
+
+              .cardFieldTextActive {
+                display: none;
+              }
+
+              &:active {
+                text-align: center;
+                background-color: var(--color-bg-control-primary-pressed);
+
+                .cardFieldTextNormal {
+                  display: none;
+                }
+
+                .cardFieldTextActive {
+                  display: block;
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -304,6 +421,7 @@
 
     .usernamePlaceholder {
       display: block;
+      line-height: 1;
       padding-left: var(--spacing-s);
     }
 
@@ -327,7 +445,9 @@
         text-align: left;
         border: none;
         outline: none;
+        font-family: Inter, system-ui, sans-serif;
         font-size: var(--font-14);
+        line-height: 1;
         cursor: pointer;
 
         .usernameTextNormal {

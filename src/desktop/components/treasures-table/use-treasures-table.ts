@@ -38,7 +38,9 @@ export function useTreasuresTable() {
         text:
           selectedGroup.value === DEFAULT_GROUP.CARDS
             ? t('treasuresTable.header.photo')
-            : t('treasuresTable.header.username'),
+            : selectedGroup.value === DEFAULT_GROUP.BANK_CARDS
+              ? t('treasuresTable.header.holderName')
+              : t('treasuresTable.header.username'),
         sortable: selectedGroup.value !== DEFAULT_GROUP.CARDS,
       },
     ];
@@ -46,7 +48,10 @@ export function useTreasuresTable() {
     if (selectedGroup.value !== DEFAULT_GROUP.CARDS) {
       tableDataHead.push({
         key: 'password',
-        text: t('treasuresTable.header.password'),
+        text:
+          selectedGroup.value === DEFAULT_GROUP.BANK_CARDS
+            ? t('treasuresTable.header.cvv')
+            : t('treasuresTable.header.password'),
       });
     }
 

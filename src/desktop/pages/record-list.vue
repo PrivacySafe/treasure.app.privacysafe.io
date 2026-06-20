@@ -15,7 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-  import { computed, inject, ref } from 'vue';
+  import { computed, inject, ref, watch } from 'vue';
   import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
   import {
@@ -26,6 +26,7 @@
   } from '@v1nt1248/3nclient-lib/plugins';
   import type { TreasureGroup, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
   import { useRecordStore } from '@/common/stores/record.store';
+  import { prepareRecordList } from '@/common/utils';
   import EditRecordDialog from '@/desktop/components/edit-record-dialog.vue';
   import EditGroupDialog from '@/desktop/components/edit-group-dialog.vue';
   import TreasureGroups from '@/desktop/components/groups.vue';
@@ -37,8 +38,9 @@
   const { $createNotice } = inject<NotificationsPlugin>(NOTIFICATIONS_KEY)!;
 
   const recordStore = useRecordStore();
-  const { sortedGroups, records, recordsByGroups } = storeToRefs(recordStore);
-  const { upsertGroup, deleteGroup, updateRecordList, addRecord, updateRecord, removeRecord, addRecordToRecent } = recordStore;
+  const { sortedGroups, records, recordsByGroups, numOfRecentRecords } = storeToRefs(recordStore);
+  const { upsertGroup, deleteGroup, updateRecordList, addRecord, updateRecord, removeRecord, addRecordToRecent } =
+    recordStore;
 
   const searchText = ref('');
   const selectedGroup = ref('');
@@ -47,22 +49,10 @@
 
   const filteredRecords = computed(() => {
     if (!selectedGroup.value) {
-      return records.value;
+      return prepareRecordList(records.value, processedSearchText.value);
     }
 
-    return (recordsByGroups.value[selectedGroup.value] || []).filter(r => {
-      const { resource, name = '', username = '' } = r;
-      const processedResource = resource.toLowerCase();
-      const processedName = name.toLowerCase();
-      const processedUsername = username.toLowerCase();
-
-      const isResourceCompliant = processedResource.includes(processedSearchText.value);
-      const isNameCompliant =
-        !processedName || (!!processedName && processedName.includes(processedSearchText.value));
-      const isUsernameCompliant =
-        !processedUsername || (!!processedUsername && processedUsername.includes(username));
-      return isResourceCompliant || isNameCompliant || isUsernameCompliant;
-    });
+    return prepareRecordList(recordsByGroups.value[selectedGroup.value], processedSearchText.value);
   });
 
   function selectGroup(gr: string) {
@@ -206,6 +196,13 @@
     updateRecordList(updatedRecord);
     await updateRecord(record.id, updatedRecord);
   }
+
+  const setInitialGroupToRecent = computed(() => numOfRecentRecords.value > 0);
+
+  const stopWatchingGroups = watch(setInitialGroupToRecent, doSetRecent => {
+    doSetRecent ? (selectedGroup.value = 'recent') : (selectedGroup.value = '');
+    stopWatchingGroups();
+  });
 </script>
 
 <template>

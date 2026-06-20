@@ -2,6 +2,7 @@
 node_modules
 /dist
 /app
+/public
 /test-user*.json
 /test-runner
 /test-data

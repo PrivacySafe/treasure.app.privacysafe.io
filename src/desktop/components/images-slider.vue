@@ -15,7 +15,8 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-  import { computed, onMounted, ref } from 'vue';
+  import { computed, onMounted, ref, useTemplateRef } from 'vue';
+  import { useSwipe, type UseSwipeDirection } from '@vueuse/core';
   import size from 'lodash/size';
   import { Ui3nButton, Ui3nIcon } from '@v1nt1248/3nclient-lib';
   import { appTreasureDenoSrv } from '@/common/services/service-provider';
@@ -28,19 +29,11 @@
     (event: 'close'): void;
   }>();
 
+  const target = useTemplateRef('container');
   const isLoading = ref(false);
   const currentImgIndex = ref(0);
   const imgSrc = ref('');
   const rotateAngle = ref(0);
-
-  const thresholdX = 20;
-  const thresholdY = 10;
-  const touchData = ref({
-    startX: 0,
-    startY: 0,
-    endX: 0,
-    endY: 0,
-  });
 
   const isSideways = computed(() => (rotateAngle.value / 90) % 2 !== 0);
 
@@ -58,6 +51,17 @@
       width: '100cqh',
       height: '100cqw',
     };
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { direction, isSwiping, lengthX, lengthY } = useSwipe(target, {
+    passive: false,
+    onSwipeEnd(e: TouchEvent, direction: UseSwipeDirection) {
+      const dir = direction === 'left' ? 'next' : direction === 'right' ? 'prev' : '-';
+      if (dir !== '-') {
+        step(dir);
+      }
+    },
   });
 
   async function loadImage(imageId: string): Promise<string> {
@@ -104,6 +108,7 @@
   }
 
   async function step(direction: 'prev' | 'next') {
+    console.log('step => ', direction);
     const currentImageIndex = currentImgIndex.value;
     if (direction === 'next' && currentImgIndex.value < size(props.imageIds) - 1) {
       currentImgIndex.value += 1;
@@ -124,39 +129,6 @@
       rotateAngle.value -= 90;
     } else {
       rotateAngle.value += 90;
-    }
-  }
-
-  function onMousedown(evt: PointerEvent) {
-    if (!props.mobileMode) {
-      return;
-    }
-
-    (evt.currentTarget as HTMLElement).setPointerCapture(evt.pointerId);
-    touchData.value.startX = evt.clientX;
-    touchData.value.startY = evt.clientY;
-  }
-
-  function onMouseUp(evt: PointerEvent) {
-    if (!props.mobileMode) {
-      return;
-    }
-
-    touchData.value.endX = evt.clientX;
-    touchData.value.endY = evt.clientY;
-    (evt.currentTarget as HTMLElement).releasePointerCapture(evt.pointerId);
-    handleGesture();
-  }
-
-  function handleGesture() {
-    const deltaX = touchData.value.endX - touchData.value.startX;
-    const deltaY = Math.abs(touchData.value.endY - touchData.value.startY);
-    if (Math.abs(deltaX) > thresholdX && deltaY < thresholdY) {
-      if (deltaX > 0) {
-        step('prev');
-      } else {
-        step('next');
-      }
     }
   }
 
@@ -202,9 +174,8 @@
     </div>
 
     <div
+      ref="container"
       :class="$style.content"
-      @pointerdown.capture="onMousedown"
-      @pointerup.capture="onMouseUp"
     >
       <transition
         name="cross-fade"

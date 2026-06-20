@@ -15,18 +15,19 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-  import { computed, ref } from 'vue';
+  import { computed, ref, watch } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
-  import { Ui3nButton, Ui3nInput, Ui3nSelector } from '@v1nt1248/3nclient-lib';
+  import { Ui3nButton, Ui3nInput } from '@v1nt1248/3nclient-lib';
+  import { DEFAULT_GROUP } from '@shared/constants';
+  import type { SyncType, TreasureRecord, TreasureGroup } from '@shared/@types';
   import { useRecordStore } from '@/common/stores/record.store';
   import { useSyncStore } from '@/common/stores/sync.store';
   import { useSort } from '@/common/composables/use-sort';
-  import type { SyncType, TreasureRecord } from '@shared/@types';
-  import RecordListItem from '@/mobile/components/record-list-item.vue';
   import { APP_ROUTES } from '@/common/constants';
-  import { DEFAULT_GROUP } from '@shared/constants';
+  import { prepareRecordList } from '@/common/utils';
+  import RecordListItem from '@/mobile/components/record-list-item.vue';
   import ImagesSlider from '@/desktop/components/images-slider.vue';
 
   const route = useRoute();
@@ -35,46 +36,33 @@
 
   const { syncProcesses } = storeToRefs(useSyncStore());
   const recordStore = useRecordStore();
-  const { sortedGroups, records, recordsByGroups } = storeToRefs(recordStore);
+  const { records, recordsByGroups } = storeToRefs(recordStore);
   const { updateRecordList, updateRecord } = recordStore;
 
   const { sortTreasuresTableData } = useSort();
 
-  const sortedGroupsAll = computed(() => [
-    { id: 'all', name: t('list.all') },
-    { id: DEFAULT_GROUP.RECENT, name: t('list.recent') },
-    { id: DEFAULT_GROUP.CARDS, name: t('list.cards') },
-    { id: DEFAULT_GROUP.FAVORITES, name: t('list.favorites') },
-    ...sortedGroups.value,
-  ]);
-
   const searchText = ref('');
   const selectedGroup = ref((route.query?.group as string) || '');
+  const activeItemId = ref<string | null>(null);
   const optionsOfShowingImages = ref<string[] | null>(null);
 
   const processedSearchText = computed(() => searchText.value.toLowerCase());
 
   const filteredRecords = computed(() => {
     if (!selectedGroup.value) {
-      return records.value;
+      return prepareRecordList(records.value, processedSearchText.value, sortTreasuresTableData);
     }
 
-    return (recordsByGroups.value[selectedGroup.value] || [])
-      .filter(r => {
-        const { resource, name = '', username = '' } = r;
-        const processedResource = resource.toLowerCase();
-        const processedName = name.toLowerCase();
-        const processedUsername = username.toLowerCase();
-
-        const isResourceCompliant = processedResource.includes(processedSearchText.value);
-        const isNameCompliant =
-          !processedName || (!!processedName && processedName.includes(processedSearchText.value));
-        const isUsernameCompliant =
-          !processedUsername || (!!processedUsername && processedUsername.includes(username));
-        return isResourceCompliant || isNameCompliant || isUsernameCompliant;
-      })
-      .sort((a, b) => sortTreasuresTableData(a, b, 'name', 'desc'));
+    return prepareRecordList(
+      recordsByGroups.value[selectedGroup.value],
+      processedSearchText.value,
+      sortTreasuresTableData,
+    );
   });
+
+  function setActiveItem(itemId: string) {
+    activeItemId.value = activeItemId.value === itemId ? null : itemId;
+  }
 
   function recordSyncProcess(id: string): { type: SyncType; value: number } | undefined {
     return syncProcesses.value[id];
@@ -89,6 +77,7 @@
     const query = {
       ...((!record?.id || record.id === 'new') && { groupId: selectedGroup.value }),
       ...(selectedGroup.value === DEFAULT_GROUP.CARDS && { cardGroup: 'on' }),
+      ...(selectedGroup.value === DEFAULT_GROUP.BANK_CARDS && { bankCardGroup: 'on' }),
       ...(selectedGroup.value === DEFAULT_GROUP.FAVORITES && { favoriteGroup: 'on' }),
       ...(selectedGroup.value === DEFAULT_GROUP.RECENT && { recentGroup: 'on' }),
     };
@@ -112,6 +101,18 @@
     updateRecordList(updatedRecord);
     await updateRecord(record.id, updatedRecord);
   }
+
+  const props = defineProps<{
+    selectGroupItem: TreasureGroup;
+  }>();
+
+  watch(
+    () => props.selectGroupItem,
+    selectedGroupOrCategory => {
+      selectGroup(selectedGroupOrCategory.id);
+    },
+    { immediate: true },
+  );
 </script>
 
 <template>
@@ -127,13 +128,8 @@
     </div>
 
     <div :class="$style.groupSelectorBlock">
-      <div :class="$style.groupSelector">
-        <ui3n-selector
-          :model-value="selectedGroup || 'all'"
-          :items="sortedGroupsAll"
-          item-display="name"
-          @update:model-value="selectGroup"
-        />
+      <div :class="$style.groupName">
+        {{ selectGroupItem?.name ?? t('list.all') }}
       </div>
 
       <ui3n-button
@@ -160,6 +156,8 @@
           :item="item"
           :sync-process="recordSyncProcess(item.id)"
           :selected-group="selectedGroup"
+          :is-active="item.id === activeItemId"
+          @toggle:active="setActiveItem(item.id)"
           @open="openRecordEditor"
           @set:favorite="setFavorite"
           @show:images="(v: string[]) => (optionsOfShowingImages = v)"
@@ -235,6 +233,10 @@
       .groupSelectorBtn {
         width: fit-content;
       }
+
+      .groupName {
+        color: var(--color-text-table-primary-default);
+      }
     }
 
     .list {
@@ -247,6 +249,7 @@
       );
       overflow-x: hidden;
       overflow-y: auto;
+      padding-top: var(--spacing-xs);
 
       .noData {
         display: block;

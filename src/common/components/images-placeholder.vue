@@ -24,6 +24,7 @@
     defineProps<{
       images: string[];
       displayedQuantity?: number;
+      disabled?: boolean;
     }>(),
     {
       displayedQuantity: 3,
@@ -50,7 +51,7 @@
 </script>
 
 <template>
-  <div :class="$style.imagesPlaceholder">
+  <div :class="[$style.imagesPlaceholder, disabled && $style.disabled]">
     <div
       v-for="(imgId, index) of displayedImagesPlaceholders"
       :key="imgId"
@@ -91,6 +92,12 @@
     justify-content: flex-start;
     align-items: center;
     column-gap: var(--spacing-s);
+
+    &.disabled {
+      pointer-events: none;
+      cursor: default;
+      opacity: 0.5;
+    }
   }
 
   .placeholderWrapper {

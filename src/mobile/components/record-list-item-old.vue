@@ -15,31 +15,22 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-  import { computed } from 'vue';
+  import { computed, ref } from 'vue';
   import { useI18n } from 'vue-i18n';
+  import isEmpty from 'lodash/isEmpty';
   import { copyToClipboard, generateColor } from '@v1nt1248/3nclient-lib/utils';
   import { Ui3nIcon, Ui3nRipple as vUi3nRipple } from '@v1nt1248/3nclient-lib';
+  import type { SyncType, TreasureRecord, TreasurePasswordRecord, TreasureCardRecord } from '@shared/@types';
+  import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants';
   import { useRecordStore } from '@/common/stores/record.store';
-  import type {
-    SyncType,
-    TreasureBankCardRecord,
-    TreasureCardRecord,
-    TreasurePasswordRecord,
-    TreasureRecord,
-  } from '@shared/@types';
-  import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants.ts';
-  import isEmpty from 'lodash/isEmpty';
   import ImagesPlaceholder from '@/common/components/images-placeholder.vue';
 
   const props = defineProps<{
     item: TreasureRecord;
     syncProcess?: { type: SyncType; value: number };
     selectedGroup: string;
-    isActive?: boolean;
   }>();
-
   const emits = defineEmits<{
-    (event: 'toggle:active'): void;
     (event: 'open', value: TreasureRecord): void;
     (event: 'set:favorite', value: TreasureRecord): void;
     (event: 'show:images', value: string[]): void;
@@ -49,6 +40,18 @@
 
   const { addRecordToRecent } = useRecordStore();
 
+  const thresholdX = 20;
+  const thresholdY = 10;
+  const touchData = ref({
+    startX: 0,
+    startY: 0,
+    endX: 0,
+    endY: 0,
+  });
+
+  const isShiftedRight = ref(false);
+  const isShiftedLeft = ref(false);
+
   const lockChanges = computed(() => !!props.syncProcess);
   const iconStyle = computed(() => {
     const label = 'images' in props.item ? props.item.resource : props.item.name || props.item.resource;
@@ -56,23 +59,56 @@
     return { backgroundColor: generateColor(label) };
   });
 
-  const itemResource = computed(() => {
-    if ('exp' in (props.item as TreasureBankCardRecord)) {
-      const itemResourceParsed = props.item.resource.split(' ');
-      const updatedResourceData = itemResourceParsed
-        .map((part, index) => (index === 0 || index === itemResourceParsed.length - 1 ? part : '****'))
-        .join(' ');
-      return `${updatedResourceData} [${(props.item as TreasureBankCardRecord).exp}]`;
+  function onClick(evt: MouseEvent) {
+    const delta = Math.abs(touchData.value.endX - touchData.value.startX);
+    if (delta > thresholdX) {
+      evt.stopPropagation();
+      return;
     }
 
-    return props.item.resource;
-  });
+    emits('open', props.item);
+  }
 
-  function toggleActionsBlock() {
-    emits('toggle:active');
+  function onMousedown(evt: PointerEvent) {
+    (evt.currentTarget as HTMLElement).setPointerCapture(evt.pointerId);
+    touchData.value.startX = evt.clientX;
+    touchData.value.startY = evt.clientY;
+  }
+
+  function onMouseUp(evt: PointerEvent) {
+    touchData.value.endX = evt.clientX;
+    touchData.value.endY = evt.clientY;
+    (evt.currentTarget as HTMLElement).releasePointerCapture(evt.pointerId);
+    handleGesture();
+  }
+
+  function handleGesture() {
+    const deltaX = touchData.value.endX - touchData.value.startX;
+    const deltaY = Math.abs(touchData.value.endY - touchData.value.startY);
+    if (Math.abs(deltaX) > thresholdX && deltaY < thresholdY) {
+      if (deltaX > 0) {
+        if (isShiftedLeft.value) {
+          isShiftedLeft.value = false;
+        } else {
+          isShiftedRight.value = true;
+        }
+      } else {
+        if (isShiftedRight.value) {
+          isShiftedRight.value = false;
+        } else {
+          isShiftedLeft.value = true;
+        }
+      }
+    }
+  }
+
+  function setFavorite() {
+    isShiftedRight.value = false;
+    emits('set:favorite', props.item);
   }
 
   async function copyText(text: string) {
+    isShiftedLeft.value = false;
     if (lockChanges.value) {
       return;
     }
@@ -89,16 +125,41 @@
       await addRecordToRecent(props.item.id);
     }
 
+    isShiftedLeft.value = false;
+    isShiftedRight.value = false;
     emits('show:images', (props.item as TreasureCardRecord).images);
   }
 </script>
 
 <template>
-  <div :class="[$style.recordListItem, isActive && $style.expanded]">
+  <div
+    :class="[
+      $style.recordListItemWrapper,
+      isShiftedLeft && $style.shiftedLeft,
+      isShiftedRight && $style.shiftedRight,
+    ]"
+  >
     <div
-      v-ui3n-ripple="{ color: 'var(--color-border-button-secondary-focused)' }"
-      :class="[$style.content, lockChanges && $style.locked]"
-      @click.stop.prevent="toggleActionsBlock"
+      v-ui3n-ripple
+      :class="$style.favoriteBlock"
+      @click="setFavorite"
+    >
+      <ui3n-icon
+        icon="round-bookmark"
+        :color="
+          item.isFavorite ? 'var(--color-icon-table-accent-unselected)' : 'var(--color-icon-table-accent-selected)'
+        "
+        size="24"
+      />
+
+      <span>{{ item.isFavorite ? t('list.removeFromFavorites') : t('list.addToFavorites') }}</span>
+    </div>
+
+    <div
+      :class="[$style.recordListItem, lockChanges && $style.locked]"
+      @pointerdown.capture="onMousedown"
+      @pointerup.capture="onMouseUp"
+      @click="onClick"
     >
       <div
         :class="$style.icon"
@@ -120,7 +181,7 @@
 
       <div :class="$style.itemInfo">
         <span :class="$style.name">{{ 'images' in item ? item.resource : item.name || item.resource }}</span>
-        <span :class="$style.resource">{{ itemResource }}</span>
+        <span :class="$style.resource">{{ item.resource }}</span>
         <span
           v-if="(item as TreasurePasswordRecord).username"
           :class="$style.username"
@@ -148,167 +209,137 @@
       />
     </div>
 
-    <transition>
-      <div
-        v-if="isActive"
-        :class="$style.actions"
-      >
+    <div :class="[$style.copyBlock, item.type === RECORD_TYPE.CARD && $style.copyBlockCard]">
+      <template v-if="item.type === RECORD_TYPE.CARD">
+        <images-placeholder
+          :images="item.images"
+          :displayed-quantity="2"
+          :disabled="isEmpty(item.images)"
+          @click.stop.prevent="() => showImages()"
+        />
+      </template>
+
+      <template v-else>
         <div
+          v-if="(item as TreasurePasswordRecord).username"
           v-ui3n-ripple
-          :class="$style.actionBtn"
-          @click.stop.prevent="emits('open', item)"
+          :class="$style.copyBlockItem"
+          @click="() => copyText((item as TreasurePasswordRecord).username)"
         >
           <ui3n-icon
-            icon="round-edit"
+            icon="round-content-copy"
             color="var(--color-icon-table-accent-selected)"
             size="24"
           />
 
-          <span>{{ t('list.editRecord') }}</span>
+          <span>{{ t('list.copyUsername') }}</span>
         </div>
 
-        <div :class="$style.buttonsBlock">
-          <template v-if="item.type === RECORD_TYPE.CARD">
-            <images-placeholder
-              :images="item.images"
-              :displayed-quantity="2"
-              :disabled="isEmpty(item.images)"
-              @click.stop.prevent="() => showImages()"
-            />
-          </template>
+        <div
+          v-if="(item as TreasurePasswordRecord).password"
+          v-ui3n-ripple
+          :class="$style.copyBlockItem"
+          @click="() => copyText((item as TreasurePasswordRecord).password)"
+        >
+          <ui3n-icon
+            icon="key-vertical-outline"
+            color="var(--color-icon-table-accent-selected)"
+            size="24"
+          />
 
-          <template v-else>
-            <div
-              v-ui3n-ripple
-              :class="$style.actionBtn"
-              @click.stop.prevent="emits('set:favorite', item)"
-            >
-              <ui3n-icon
-                icon="round-bookmark"
-                :color="
-                  item.isFavorite
-                    ? 'var(--color-icon-table-accent-unselected)'
-                    : 'var(--color-icon-table-accent-selected)'
-                "
-                size="24"
-              />
-
-              <span>{{ item.isFavorite ? t('list.removeFromFavorites') : t('list.addToFavorites') }}</span>
-            </div>
-
-            <div
-              v-if="item.type === RECORD_TYPE.BANK_CARD"
-              v-ui3n-ripple
-              :class="$style.actionBtn"
-              @click.stop.prevent="() => copyText((item as TreasureBankCardRecord).resource)"
-            >
-              <ui3n-icon
-                icon="round-credit-card"
-                color="var(--color-icon-table-accent-selected)"
-                size="24"
-              />
-
-              <span>{{ t('list.copyCardNumber') }}</span>
-            </div>
-
-            <div
-              v-if="(item as TreasurePasswordRecord).username"
-              v-ui3n-ripple
-              :class="$style.actionBtn"
-              @click.stop.prevent="() => copyText((item as TreasurePasswordRecord).username)"
-            >
-              <ui3n-icon
-                icon="round-content-copy"
-                color="var(--color-icon-table-accent-selected)"
-                size="24"
-              />
-
-              <span>
-                {{ item.type === RECORD_TYPE.BANK_CARD ? t('list.copyCardHolder') : t('list.copyUsername') }}
-              </span>
-            </div>
-
-            <div
-              v-if="item.type === RECORD_TYPE.BANK_CARD"
-              v-ui3n-ripple
-              :class="$style.actionBtn"
-              @click.stop.prevent="() => copyText((item as TreasureBankCardRecord).exp)"
-            >
-              <ui3n-icon
-                icon="round-calendar-view-month"
-                color="var(--color-icon-table-accent-selected)"
-                size="24"
-              />
-
-              <span>{{ t('list.copyCardExp') }}</span>
-            </div>
-
-            <div
-              v-if="(item as TreasurePasswordRecord).password"
-              v-ui3n-ripple
-              :class="$style.actionBtn"
-              @click.stop.prevent="() => copyText((item as TreasurePasswordRecord).password)"
-            >
-              <ui3n-icon
-                icon="key-vertical-outline"
-                color="var(--color-icon-table-accent-selected)"
-                size="24"
-              />
-
-              <span>
-                {{ item.type === RECORD_TYPE.BANK_CARD ? t('list.copyCardCvv') : t('list.copyPassword') }}
-              </span>
-            </div>
-          </template>
+          <span>{{ t('list.copyRecord') }}</span>
         </div>
-      </div>
-    </transition>
+      </template>
+    </div>
   </div>
 </template>
 
 <style lang="scss" module>
   @use '@/assets/styles/_mixins' as mixins;
 
-  .recordListItem {
-    --item-min-height: 72px;
-    --name-icon-size: 36px;
-
+  .recordListItemWrapper {
     position: relative;
-    width: calc(100% - var(--spacing-m));
-    background-color: var(--color-bg-block-primary-default);
+    display: flex;
+    justify-content: flex-start;
+    align-items: stretch;
+    height: 72px;
+    width: fit-content;
+    border-bottom: 1px solid var(--color-border-block-primary-default);
+    transition: all 0.25s ease-in-out;
     overflow: hidden;
-    transition: height 0.25s ease-in-out;
-    margin: 0 auto 12px;
-    border-radius: var(--spacing-m);
-    box-shadow:
-      3px 3px 5px 2px var(--shadow-key-2),
-      -1px -1px 5px 2px var(--shadow-key-2);
 
-    &.expanded {
-      background-color: var(--color-bg-control-secondary-default);
+    &.shiftedRight {
+      .favoriteBlock,
+      .recordListItem,
+      .copyBlock {
+        left: 0;
+      }
+    }
 
-      .content {
-        border-bottom: 1px solid var(--color-border-block-primary-hover);
+    &.shiftedLeft {
+      .favoriteBlock,
+      //.recordListItem,
+      .copyBlock {
+        left: -192px;
       }
     }
   }
 
-  .content {
+  .favoriteBlock {
+    position: relative;
+    width: 64px;
+    min-width: 64px;
+    height: 100%;
+    left: -64px;
     display: flex;
-    width: 100%;
-    height: var(--item-min-height);
-    padding: 0 var(--spacing-m);
+    flex-direction: column;
+    row-gap: var(--spacing-xs);
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-border-button-secondary-focused);
+    transition: all 0.25s ease-in-out;
+
+    span {
+      display: block;
+      width: 100%;
+      font-size: var(--font-8);
+      font-weight: 700;
+      line-height: var(--font-11);
+      padding: 0 var(--spacing-s);
+      text-align: center;
+      color: var(--color-text-table-accent-default);
+    }
+  }
+
+  .recordListItem {
+    --name-icon-size: 36px;
+
+    position: relative;
+    left: -64px;
+    display: flex;
     justify-content: flex-start;
     align-items: center;
     column-gap: var(--spacing-s);
+    width: 100vw;
+    min-width: 100vw;
+    height: 100%;
+    padding: 0 var(--spacing-m);
     user-select: none;
+    -webkit-user-drag: none;
     cursor: pointer;
-    overflow: hidden;
+    transition: all 0.25s ease-in-out;
 
     &.locked {
       pointer-events: none;
       cursor: none;
       opacity: 0.7;
+    }
+
+    &:not(.locked):hover {
+      .infoIcon {
+        opacity: 1;
+        cursor: pointer;
+      }
     }
 
     .icon {
@@ -386,36 +417,27 @@
     }
   }
 
-  .actions {
+  .copyBlock {
+    position: relative;
+    width: 128px;
+    min-width: 128px;
+    height: 100%;
+    left: -64px;
     display: flex;
-    width: 100%;
-    height: var(--item-min-height);
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    overflow: hidden;
+    background-color: var(--color-border-button-secondary-focused);
+    transition: all 0.25s ease-in-out;
 
-    .buttonsBlock {
+    .copyBlockItem {
       position: relative;
-      display: flex;
+      width: 64px;
       height: 100%;
-      justify-content: flex-start;
-      align-items: center;
-      overflow: hidden;
-    }
-
-    .actionBtn {
-      position: relative;
       display: flex;
-      min-width: 48px;
-      max-width: 64px;
-      height: 100%;
       flex-direction: column;
-      justify-content: flex-start;
-      align-items: center;
       row-gap: var(--spacing-xs);
-      padding-top: 12px;
-      cursor: pointer;
-      overflow: hidden;
+      justify-content: center;
+      align-items: center;
 
       span {
         display: block;
@@ -426,6 +448,18 @@
         padding: 0 var(--spacing-s);
         text-align: center;
         color: var(--color-text-table-accent-default);
+      }
+    }
+
+    &.copyBlockCard {
+      padding: 0 var(--spacing-s);
+
+      & > div {
+        --img-placeholder-size: 32px !important;
+
+        span {
+          font-size: var(--font-14) !important;
+        }
       }
     }
   }

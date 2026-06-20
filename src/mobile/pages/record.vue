@@ -26,8 +26,10 @@
   import type { ProcessedImage, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
   import RecordEditor from '@/common/components/record-editor.vue';
   import CardEditor from '@/common/components/card-editor.vue';
+  import BankCardEditor from '@/common/components/bank-card-editor.vue';
   import ConfirmationDialog from '@/common/components/dialogs/confirmation-dialog.vue';
-  import { DEFAULT_GROUP } from '@shared/constants.ts';
+  import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants.ts';
+  import { appTreasureDenoSrv } from '@/common/services/service-provider.ts';
 
   const route = useRoute();
   const router = useRouter();
@@ -42,23 +44,39 @@
   const recordId = computed(() => (route.params?.id || 'new') as string);
   const groupId = computed(() => (route.query?.groupId || '') as string);
   const isFromCardGroup = computed(() => (route.query?.cardGroup || '') === 'on');
+  const isFromBankCardGroup = computed(() => (route.query?.bankCardGroup || '') === 'on');
   const isFromFavoriteGroup = computed(() => (route.query?.favoriteGroup || '') === 'on');
   const isFromRecentGroup = computed(() => (route.query?.recentGroup || '') === 'on');
 
   const record = recordId.value === 'new' ? undefined : records.value.find(r => r.id === recordId.value);
 
-  const { t, isLoading, sortedGroups, recordData, images, isFormValid, isChanged, switchBetweenPasswordAndCard } =
-    useRecord({
-      record,
-      selectedGroup: groupId.value,
-    });
+  const {
+    t,
+    isLoading,
+    sortedGroups,
+    recordData,
+    otherRecordTypes,
+    images,
+    isFormValid,
+    isChanged,
+    switchBetweenRecordType,
+  } = useRecord({
+    record,
+    selectedGroup: groupId.value,
+  });
 
   function backToList() {
     const query = {
       ...(isFromCardGroup.value && { group: DEFAULT_GROUP.CARDS }),
+      ...(isFromBankCardGroup.value && { group: DEFAULT_GROUP.BANK_CARDS }),
       ...(isFromFavoriteGroup.value && { group: DEFAULT_GROUP.FAVORITES }),
       ...(isFromRecentGroup.value && { group: DEFAULT_GROUP.RECENT }),
-      ...(!(isFromCardGroup.value || isFromFavoriteGroup.value || isFromRecentGroup.value) && {
+      ...(!(
+        isFromCardGroup.value ||
+        isFromBankCardGroup.value ||
+        isFromFavoriteGroup.value ||
+        isFromRecentGroup.value
+      ) && {
         group: recordData.value.group,
       }),
     };
@@ -70,8 +88,36 @@
   }
 
   async function upsertRecord() {
+    if (!isFormValid.value || !isChanged.value) {
+      return;
+    }
+
     isLoading.value = true;
     try {
+      if (recordData.value.type === RECORD_TYPE.CARD) {
+        recordData.value.images = [];
+        for (const img of images.value) {
+          const { name, data, isNew, isTouched, toDelete } = img;
+
+          if (toDelete) {
+            !isNew && (await appTreasureDenoSrv.deleteImages([name]));
+            continue;
+          }
+
+          if (isNew) {
+            const newImageId = await appTreasureDenoSrv.saveImage({ bytes: data as Uint8Array });
+            recordData.value.images.push(newImageId);
+            continue;
+          }
+
+          if (isTouched) {
+            await appTreasureDenoSrv.saveImage({ id: name, bytes: data as Uint8Array });
+          }
+
+          recordData.value.images.push(name);
+        }
+      }
+
       if (recordId.value === 'new') {
         await addRecord(recordData.value);
       } else {
@@ -164,7 +210,7 @@
 
     <div :class="$style.recordBody">
       <card-editor
-        v-if="recordData.type === 'card'"
+        v-if="recordData.type === RECORD_TYPE.CARD"
         :record="recordData"
         :sorted-groups="sortedGroups"
         :images="images"
@@ -172,6 +218,16 @@
         @update:record="(v: TreasureRecord) => (recordData = v)"
         @update:images="(v: ProcessedImage[]) => (images = v)"
         @update:image="(v: { index: number; data: ProcessedImage }) => (images[v.index] = v.data)"
+        @update:validation-flag="(v: boolean) => (isFormValid = v)"
+      />
+
+      <bank-card-editor
+        v-else-if="recordData.type === RECORD_TYPE.BANK_CARD"
+        :record="recordData"
+        :sorted-groups="sortedGroups"
+        :is-loading="isLoading"
+        mobile-mode
+        @update:record="(v: TreasureRecord) => (recordData = v)"
         @update:validation-flag="(v: boolean) => (isFormValid = v)"
       />
 
@@ -201,17 +257,24 @@
         {{ t('recordDialog.btn.delete') }}
       </ui3n-button>
 
-      <ui3n-button
-        v-if="recordId === 'new'"
-        type="tertiary"
-        @click="switchBetweenPasswordAndCard"
+      <div
+        v-if="recordData.id === 'new'"
+        :class="$style.recordTypeSwitcher"
       >
-        {{
-          recordData.type === 'card'
-            ? t('recordDialog.btn.switch_to_password')
-            : t('recordDialog.btn.switch_to_card')
-        }}
-      </ui3n-button>
+        <span>{{ t('recordDialog.btn.switch_to') }}</span>
+        <template
+          v-for="(rT, index) in otherRecordTypes"
+          :key="rT.id"
+        >
+          <a
+            :class="$style.recordTypesItem"
+            @click.stop.prevent="() => switchBetweenRecordType(rT.id)"
+          >
+            {{ t(rT.name) }}
+          </a>
+          <span v-if="index < otherRecordTypes.length - 1">{{ t('recordDialog.text.or') }}</span>
+        </template>
+      </div>
 
       <ui3n-button
         block
@@ -288,7 +351,30 @@
       padding: var(--spacing-m);
       justify-content: flex-start;
       align-items: center;
-      row-gap: var(--spacing-xs);
+      row-gap: 6px;
+
+      .recordTypeSwitcher {
+        display: flex;
+        flex-direction: row;
+        width: 100%;
+        padding: var(--spacing-xs) 0;
+        justify-content: center;
+        align-items: center;
+        column-gap: var(--spacing-xs);
+        font-size: var(--font-14);
+        font-weight: 500;
+        line-height: var(--font-18);
+        color: var(--color-text-control-primary-default);
+
+        .recordTypesItem {
+          color: var(--color-text-control-secondary-default);
+          cursor: pointer;
+
+          &:hover {
+            color: var(--color-text-control-accent-default);
+          }
+        }
+      }
 
       button {
         padding-right: var(--spacing-m);

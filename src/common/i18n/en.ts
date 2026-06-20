@@ -32,12 +32,19 @@ export const en = {
     create: 'New Record',
     createGroup: 'New Group',
     editGroup: 'Edit Group',
+    editRecord: 'Edit Record',
     addToFavorites: 'Add To Favorites',
     removeFromFavorites: 'Remove from Favorites',
     copyUsername: 'Copy Username',
+    copyPassword: 'Copy Password',
+    copyCardNumber: 'Copy Card Number',
+    copyCardHolder: 'Copy Card Holder',
+    copyCardExp: 'Copy Expire Date',
+    copyCardCvv: 'Copy CVV',
     copyRecord: 'Copy Record',
     all: 'All Records',
     recent: 'Recent',
+    bank_cards: 'Bank Cards',
     cards: 'Custom Cards',
     favorites: 'Favorites',
     search: 'Search records',
@@ -60,8 +67,10 @@ export const en = {
     title: {
       add: 'Add New Record',
       add_card: 'Add New Card',
+      add_bank_card: 'Add New Bank Card',
       edit: 'The Record Details',
       edit_card: 'The Card Details',
+      edit_bank_card: 'The Bank Card Details',
     },
     btn: {
       close: 'Close',
@@ -69,8 +78,7 @@ export const en = {
       discard: 'Discard',
       save: 'Save Changes',
       delete: 'Delete The Record',
-      switch_to_password: 'Switch to Password Record',
-      switch_to_card: 'Switch to Card',
+      switch_to: 'Switch to',
     },
     form: {
       fields: {
@@ -105,6 +113,35 @@ export const en = {
           required: 'The card name field cannot be empty. ',
           unique: 'A card with the with the same name already exists. ',
         },
+        bancCardName: {
+          label: 'Bank card name',
+          placeholder: 'Enter the current bank card name',
+          required: 'The bank card name field cannot be empty. ',
+        },
+        cardNumber: {
+          label: 'Card number',
+          placeholder: 'XXXX XXXX XXXX XXXX',
+          required: 'The card number field cannot be empty',
+          length: 'The card number must consist of 16 digits ',
+        },
+        cardHolder: {
+          label: 'Card holder',
+          placeholder: 'FULL NAME',
+          required: 'The card holder field cannot be empty ',
+        },
+        cardExp: {
+          label: 'Expiry',
+          placeholder: 'MM/YY',
+          required: 'The expiry date field cannot be empty ',
+          format: 'The value in the field does not match the format (MM/YY) ',
+          month: 'The month value must be between 01 and 12 ',
+        },
+        cardCvv: {
+          label: 'CVV',
+          placeholder: '123',
+          required: 'The CVV field cannot be empty ',
+          length: 'The field value must contain 3 or 4 digits ',
+        },
       },
       btns: {
         generate: 'Generate password',
@@ -119,6 +156,14 @@ export const en = {
           limit: 'The total number of images will exceed the allowed limit. Some new images will not be uploaded.',
         },
       },
+    },
+    record_type: {
+      password: 'Password Record',
+      card: 'Custom Card',
+      bank_card: 'Bank Card',
+    },
+    text: {
+      or: 'or',
     },
   },
   groupDialog: {
@@ -163,9 +208,11 @@ export const en = {
     header: {
       name: 'Name',
       sync: 'Sync',
-      username: 'Username / Photo',
+      username: 'Username / Holder name / Photo',
+      holderName: 'Holder name',
       photo: 'Photo',
-      password: 'Password',
+      password: 'Password / CVV',
+      cvv: 'CVV',
     },
     nodata: 'No records in current group.',
     row: {

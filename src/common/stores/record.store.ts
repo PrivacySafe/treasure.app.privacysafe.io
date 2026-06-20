@@ -22,7 +22,7 @@ import keyBy from 'lodash/keyBy';
 import { appTreasureDenoSrv } from '@/common/services/service-provider';
 import { useAppStore } from '@/common/stores/app.store';
 import type { TreasureGroup, TreasureRecord } from '@shared/@types';
-import { DEFAULT_GROUP } from '@shared/constants.ts';
+import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants.ts';
 
 const MAX_RECENT_LIST_SIZE = 20;
 
@@ -42,7 +42,9 @@ export const useRecordStore = defineStore('records', () => {
 
   const recentRecords = computed(() => records.value.filter(r => idsOfRecentRecords.value.includes(r.id)));
   const favoritesRecords = computed(() => records.value.filter(r => r.isFavorite));
-  const cardsRecords = computed(() => records.value.filter(r => r.type === 'card'));
+  const cardsRecords = computed(() => records.value.filter(r => r.type === RECORD_TYPE.CARD));
+  const bankCardsRecords = computed(() => records.value.filter(r => r.type === RECORD_TYPE.BANK_CARD));
+  const numOfRecentRecords = computed(() => recentRecords.value.length);
 
   const recordsByGroups = computed(() =>
     records.value.reduce(
@@ -63,6 +65,7 @@ export const useRecordStore = defineStore('records', () => {
         [DEFAULT_GROUP.RECENT]: recentRecords.value,
         [DEFAULT_GROUP.FAVORITES]: favoritesRecords.value,
         [DEFAULT_GROUP.CARDS]: cardsRecords.value,
+        [DEFAULT_GROUP.BANK_CARDS]: bankCardsRecords.value,
       } as Record<string, TreasureRecord[]>,
     ),
   );
@@ -239,6 +242,7 @@ export const useRecordStore = defineStore('records', () => {
     removeRecord,
     updateRecord,
     getAllRecords,
+    numOfRecentRecords,
 
     loadRecentRecords,
     saveRecentRecords,

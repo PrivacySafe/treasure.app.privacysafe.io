@@ -27,13 +27,15 @@
     type Ui3nDialogComponentProps,
     type Ui3nDialogEvent,
   } from '@v1nt1248/3nclient-lib';
+  import { RECORD_TYPE } from '@shared/constants';
   import { appTreasureDenoSrv } from '@/common/services/service-provider';
   import { useRecordStore } from '@/common/stores/record.store';
   import { useRecord } from '@/common/composables/use-record';
-  import type { ProcessedImage, TreasureRecord } from '@shared/@types';
+  import type { ProcessedImage, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
   import ConfirmationDialog from '@/common/components/dialogs/confirmation-dialog.vue';
   import RecordEditor from '@/common/components/record-editor.vue';
   import CardEditor from '@/common/components/card-editor.vue';
+  import BankCardEditor from '@/common/components/bank-card-editor.vue';
 
   const props = defineProps<{
     record?: TreasureRecord;
@@ -48,8 +50,17 @@
   const { $createNotice } = inject(NOTIFICATIONS_KEY)!;
   const { sortedGroups, records } = storeToRefs(useRecordStore());
 
-  const { t, isLoading, dialogTitle, recordData, images, isFormValid, isChanged, switchBetweenPasswordAndCard } =
-    useRecord({ record: cloneDeep(props.record), selectedGroup: props.selectedGroup });
+  const {
+    t,
+    isLoading,
+    dialogTitle,
+    recordData,
+    otherRecordTypes,
+    images,
+    isFormValid,
+    isChanged,
+    switchBetweenRecordType,
+  } = useRecord({ record: cloneDeep(props.record), selectedGroup: props.selectedGroup });
 
   async function deleteRecord() {
     const confirmDialogRes = await $openDialog(ConfirmationDialog, {
@@ -79,7 +90,7 @@
 
     try {
       isLoading.value = true;
-      if (recordData.value.type === 'card') {
+      if (recordData.value.type === RECORD_TYPE.CARD) {
         recordData.value.images = [];
         for (const img of images.value) {
           const { name, data, isNew, isTouched, toDelete } = img;
@@ -140,7 +151,7 @@
 
     <template #body>
       <card-editor
-        v-if="recordData.type === 'card'"
+        v-if="recordData.type === RECORD_TYPE.CARD"
         :record="recordData"
         :records="records"
         :sorted-groups="sortedGroups"
@@ -152,9 +163,19 @@
         @update:validation-flag="(v: boolean) => (isFormValid = v)"
       />
 
+      <bank-card-editor
+        v-else-if="recordData.type === RECORD_TYPE.BANK_CARD"
+        :record="recordData"
+        :sorted-groups="sortedGroups"
+        :is-loading="isLoading"
+        mobile-mode
+        @update:record="(v: TreasureRecord) => (recordData = v)"
+        @update:validation-flag="(v: boolean) => (isFormValid = v)"
+      />
+
       <record-editor
         v-else
-        :record="recordData"
+        :record="recordData as TreasurePasswordRecord"
         :records="records"
         :sorted-groups="sortedGroups"
         :is-loading="isLoading"
@@ -189,19 +210,24 @@
             {{ t('recordDialog.btn.delete') }}
           </ui3n-button>
 
-          <ui3n-button
+          <div
             v-if="recordData.id === 'new'"
-            type="custom"
-            color="var(--color-bg-block-primary-default)"
-            text-color="var(--color-text-button-secondary-default)"
-            @click="switchBetweenPasswordAndCard"
+            :class="$style.recordTypeSwitcher"
           >
-            {{
-              recordData.type === 'card'
-                ? t('recordDialog.btn.switch_to_password')
-                : t('recordDialog.btn.switch_to_card')
-            }}
-          </ui3n-button>
+            <span>{{ t('recordDialog.btn.switch_to') }}</span>
+            <template
+              v-for="(rT, index) in otherRecordTypes"
+              :key="rT.id"
+            >
+              <a
+                :class="$style.recordTypesItem"
+                @click.stop.prevent="() => switchBetweenRecordType(rT.id)"
+              >
+                {{ t(rT.name) }}
+              </a>
+              <span v-if="index < otherRecordTypes.length - 1">{{ t('recordDialog.text.or') }}</span>
+            </template>
+          </div>
         </div>
 
         <div :class="$style.block">
@@ -266,6 +292,29 @@
       padding: 0 var(--spacing-m);
       justify-content: space-between;
       align-items: center;
+    }
+
+    .recordTypeSwitcher {
+      display: flex;
+      flex-direction: row;
+      width: 100%;
+      padding: var(--spacing-xs) 0;
+      justify-content: center;
+      align-items: center;
+      column-gap: var(--spacing-xs);
+      font-size: var(--font-14);
+      font-weight: 500;
+      line-height: var(--font-18);
+      color: var(--color-text-control-primary-default);
+
+      .recordTypesItem {
+        color: var(--color-text-control-secondary-default);
+        cursor: pointer;
+
+        &:hover {
+          color: var(--color-text-control-accent-default);
+        }
+      }
     }
 
     & > div:nth-child(2) {

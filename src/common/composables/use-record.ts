@@ -21,8 +21,14 @@ import cloneDeep from 'lodash/cloneDeep';
 import difference from 'lodash/difference';
 import isEmpty from 'lodash/isEmpty';
 import { useRecordStore } from '@/common/stores/record.store';
-import type { ProcessedImage, TreasureCardRecord, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
-import { DEFAULT_GROUP } from '@shared/constants.ts';
+import type {
+  ProcessedImage,
+  TreasureBankCardRecord,
+  TreasureCardRecord,
+  TreasurePasswordRecord,
+  TreasureRecord,
+} from '@shared/@types';
+import { DEFAULT_GROUP, RECORD_TYPE, RECORD_TYPES } from '@shared/constants.ts';
 
 const newPasswordRecordData: TreasurePasswordRecord = {
   id: 'new',
@@ -32,7 +38,7 @@ const newPasswordRecordData: TreasurePasswordRecord = {
   password: '',
   group: '',
   isFavorite: false,
-  type: 'password',
+  type: RECORD_TYPE.PASSWORD,
 };
 
 const newCardRecordData: TreasureCardRecord = {
@@ -41,7 +47,19 @@ const newCardRecordData: TreasureCardRecord = {
   group: '',
   images: [],
   isFavorite: false,
-  type: 'card',
+  type: RECORD_TYPE.CARD,
+};
+
+const newBankCardRecord: TreasureBankCardRecord = {
+  id: 'new',
+  resource: '',
+  name: '',
+  username: '',
+  exp: '',
+  password: '',
+  group: '',
+  isFavorite: false,
+  type: RECORD_TYPE.BANK_CARD,
 };
 
 export function useRecord({ record, selectedGroup }: { record?: TreasureRecord; selectedGroup?: string }) {
@@ -51,21 +69,26 @@ export function useRecord({ record, selectedGroup }: { record?: TreasureRecord; 
   const { sortedGroups } = storeToRefs(recordStore);
 
   const isLoading = ref(false);
+
   const recordData = ref(
     record
       ? cloneDeep(record)
       : selectedGroup && selectedGroup === DEFAULT_GROUP.CARDS
         ? cloneDeep(newCardRecordData)
-        : {
-            ...cloneDeep(newPasswordRecordData),
-            ...(selectedGroup && selectedGroup === DEFAULT_GROUP.FAVORITES && { isFavorite: true }),
-            ...(selectedGroup &&
-              !([DEFAULT_GROUP.RECENT, DEFAULT_GROUP.FAVORITES] as string[]).includes(selectedGroup) && {
-                group: selectedGroup,
-              }),
-          },
+        : selectedGroup && selectedGroup === DEFAULT_GROUP.BANK_CARDS
+          ? cloneDeep(newBankCardRecord)
+          : {
+              ...cloneDeep(newPasswordRecordData),
+              ...(selectedGroup && selectedGroup === DEFAULT_GROUP.FAVORITES && { isFavorite: true }),
+              ...(selectedGroup &&
+                !([DEFAULT_GROUP.RECENT, DEFAULT_GROUP.FAVORITES] as string[]).includes(selectedGroup) && {
+                  group: selectedGroup,
+                }),
+            },
   );
+
   const initialRecordData = ref<TreasureRecord>(cloneDeep(recordData.value));
+
   const images = ref<ProcessedImage[]>(
     record && record.type === 'card'
       ? record.images.map(img => ({
@@ -79,16 +102,28 @@ export function useRecord({ record, selectedGroup }: { record?: TreasureRecord; 
   const isFormValid = ref(false);
 
   const dialogTitle = computed(() => {
-    if (recordData.value.type === 'card') {
+    if (recordData.value.type === RECORD_TYPE.CARD) {
       return recordData.value.id === 'new' ? t('recordDialog.title.add_card') : t('recordDialog.title.edit_card');
+    }
+
+    if (recordData.value.type === RECORD_TYPE.BANK_CARD) {
+      return recordData.value.id === 'new'
+        ? t('recordDialog.title.add_bank_card')
+        : t('recordDialog.title.edit_bank_card');
     }
 
     return recordData.value.id === 'new' ? t('recordDialog.title.add') : t('recordDialog.title.edit');
   });
 
+  const otherRecordTypes = computed(() => RECORD_TYPES.filter(r => r.id !== recordData.value.type));
+
   const isChanged = computed(() => {
     const recordDataFields =
-      recordData.value.type === 'card' ? Object.keys(newCardRecordData) : Object.keys(newPasswordRecordData);
+      recordData.value.type === RECORD_TYPE.CARD
+        ? Object.keys(newCardRecordData)
+        : recordData.value.type === RECORD_TYPE.BANK_CARD
+          ? Object.keys(newBankCardRecord)
+          : Object.keys(newPasswordRecordData);
 
     return recordDataFields.some(field => {
       if (field !== 'images') {
@@ -110,17 +145,30 @@ export function useRecord({ record, selectedGroup }: { record?: TreasureRecord; 
     });
   });
 
-  function switchBetweenPasswordAndCard() {
+  function switchBetweenRecordType(recordType: TreasureRecord['type']) {
     const currentResource = recordData.value.resource;
     const currentGroup = recordData.value.group;
     const isFavorite = recordData.value.isFavorite;
     const id = recordData.value.id;
     images.value = [];
 
-    if (recordData.value.type === 'card') {
-      recordData.value = cloneDeep(newPasswordRecordData);
-    } else {
-      recordData.value = cloneDeep(newCardRecordData);
+    switch (recordType) {
+      case RECORD_TYPE.PASSWORD: {
+        recordData.value = cloneDeep(newPasswordRecordData);
+        break;
+      }
+
+      case RECORD_TYPE.CARD: {
+        recordData.value = cloneDeep(newCardRecordData);
+        break;
+      }
+
+      case RECORD_TYPE.BANK_CARD: {
+        recordData.value = cloneDeep(newBankCardRecord);
+        break;
+      }
+
+      // no default
     }
 
     recordData.value.id = id;
@@ -135,9 +183,10 @@ export function useRecord({ record, selectedGroup }: { record?: TreasureRecord; 
     dialogTitle,
     sortedGroups,
     recordData,
+    otherRecordTypes,
     images,
     isFormValid,
     isChanged,
-    switchBetweenPasswordAndCard,
+    switchBetweenRecordType,
   };
 }
