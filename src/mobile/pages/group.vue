@@ -172,6 +172,7 @@
     <div :class="$style.actions">
       <ui3n-button
         v-if="groupId"
+        size="large"
         block
         type="custom"
         color="var(--color-bg-block-primary-default)"
@@ -185,6 +186,7 @@
       </ui3n-button>
 
       <ui3n-button
+        size="large"
         block
         :disabled="!isFormValid || !isChanged || isLoading"
         @click="upsertGroup"
@@ -210,7 +212,7 @@
   .group {
     --group-toolbar-height: 48px;
     --group-actions-height: 64px;
-    --group-ext-actions-height: 96px;
+    --group-ext-actions-height: 120px;
 
     position: fixed;
     inset: 0;

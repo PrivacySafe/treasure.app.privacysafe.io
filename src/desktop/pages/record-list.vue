@@ -24,6 +24,7 @@
     NOTIFICATIONS_KEY,
     type NotificationsPlugin,
   } from '@v1nt1248/3nclient-lib/plugins';
+  import { useSort } from '@/common/composables/use-sort';
   import type { TreasureGroup, TreasurePasswordRecord, TreasureRecord } from '@shared/@types';
   import { useRecordStore } from '@/common/stores/record.store';
   import { prepareRecordList } from '@/common/utils';
@@ -32,6 +33,8 @@
   import TreasureGroups from '@/desktop/components/groups.vue';
   import TreasureToolbar from '@/desktop/components/toolbar.vue';
   import TreasuresTable from '@/desktop/components/treasures-table/treasures-table.vue';
+
+  const { sortTreasuresTableData, sortTreasuresRecentData } = useSort();
 
   const { t } = useI18n();
   const dialog = inject<DialogsPlugin>(DIALOGS_KEY)!;
@@ -50,9 +53,18 @@
   const filteredRecords = computed(() => {
     if (!selectedGroup.value) {
       return prepareRecordList(records.value, processedSearchText.value);
+    } else if (selectedGroup.value == 'recent') {
+      return prepareRecordList(
+        recordsByGroups.value[selectedGroup.value],
+        processedSearchText.value,
+        sortTreasuresRecentData,
+      );
     }
-
-    return prepareRecordList(recordsByGroups.value[selectedGroup.value], processedSearchText.value);
+    return prepareRecordList(
+      recordsByGroups.value[selectedGroup.value],
+      processedSearchText.value,
+      sortTreasuresTableData,
+    );
   });
 
   function selectGroup(gr: string) {

@@ -15,13 +15,13 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue';
+  import { computed, ref } from 'vue';
   import { useRoute, useRouter } from 'vue-router';
   import { useI18n } from 'vue-i18n';
   import { storeToRefs } from 'pinia';
   import { Ui3nButton, Ui3nInput } from '@v1nt1248/3nclient-lib';
   import { DEFAULT_GROUP } from '@shared/constants';
-  import type { SyncType, TreasureRecord, TreasureGroup } from '@shared/@types';
+  import type { SyncType, TreasureRecord } from '@shared/@types';
   import { useRecordStore } from '@/common/stores/record.store';
   import { useSyncStore } from '@/common/stores/sync.store';
   import { useSort } from '@/common/composables/use-sort';
@@ -29,6 +29,7 @@
   import { prepareRecordList } from '@/common/utils';
   import RecordListItem from '@/mobile/components/record-list-item.vue';
   import ImagesSlider from '@/desktop/components/images-slider.vue';
+  import CustomScrollBar from '@/common/components/custom-scroll-bar.vue';
 
   const route = useRoute();
   const router = useRouter();
@@ -36,20 +37,25 @@
 
   const { syncProcesses } = storeToRefs(useSyncStore());
   const recordStore = useRecordStore();
-  const { records, recordsByGroups } = storeToRefs(recordStore);
+  const { sortedGroupsAll, records, recordsByGroups } = storeToRefs(recordStore);
   const { updateRecordList, updateRecord } = recordStore;
 
   const { sortTreasuresTableData } = useSort();
 
   const searchText = ref('');
-  const selectedGroup = ref((route.query?.group as string) || '');
   const activeItemId = ref<string | null>(null);
   const optionsOfShowingImages = ref<string[] | null>(null);
+
+  const selectedGroup = computed(() => (route.query?.group as string) || '');
+  const selectedGroupRecord = computed(() => {
+    const groupId = selectedGroup.value || 'all';
+    return sortedGroupsAll.value ? sortedGroupsAll.value.find(g => g.id === groupId) : undefined;
+  });
 
   const processedSearchText = computed(() => searchText.value.toLowerCase());
 
   const filteredRecords = computed(() => {
-    if (!selectedGroup.value) {
+    if (!selectedGroup.value || selectedGroup.value === 'all') {
       return prepareRecordList(records.value, processedSearchText.value, sortTreasuresTableData);
     }
 
@@ -60,17 +66,20 @@
     );
   });
 
+  const editingGroupsBan = computed(
+    () =>
+      !selectedGroup.value ||
+      [DEFAULT_GROUP.FAVORITES, DEFAULT_GROUP.RECENT, DEFAULT_GROUP.CARDS, DEFAULT_GROUP.BANK_CARDS].includes(
+        selectedGroup.value as (typeof DEFAULT_GROUP)[keyof typeof DEFAULT_GROUP],
+      ),
+  );
+
   function setActiveItem(itemId: string) {
     activeItemId.value = activeItemId.value === itemId ? null : itemId;
   }
 
   function recordSyncProcess(id: string): { type: SyncType; value: number } | undefined {
     return syncProcesses.value[id];
-  }
-
-  async function selectGroup(groupId: string) {
-    selectedGroup.value = groupId === 'all' ? '' : groupId;
-    await router.push({ query: { group: selectedGroup.value } });
   }
 
   function openRecordEditor(record?: TreasureRecord) {
@@ -89,6 +98,7 @@
   }
 
   function openGroupEditor(groupId?: string) {
+    console.log('openGroupEditor => ', groupId);
     router.push({ name: APP_ROUTES.GROUP, params: { id: groupId || '' } });
   }
 
@@ -101,18 +111,6 @@
     updateRecordList(updatedRecord);
     await updateRecord(record.id, updatedRecord);
   }
-
-  const props = defineProps<{
-    selectGroupItem: TreasureGroup;
-  }>();
-
-  watch(
-    () => props.selectGroupItem,
-    selectedGroupOrCategory => {
-      selectGroup(selectedGroupOrCategory.id);
-    },
-    { immediate: true },
-  );
 </script>
 
 <template>
@@ -128,52 +126,48 @@
     </div>
 
     <div :class="$style.groupSelectorBlock">
-      <div :class="$style.groupName">
-        {{ selectGroupItem?.name ?? t('list.all') }}
+      <div :class="$style.groupSelector">
+        {{ selectedGroupRecord ? selectedGroupRecord.name : t('list.all') }}
       </div>
 
       <ui3n-button
         type="secondary"
         :class="$style.groupSelectorBtn"
-        @click="
-          () =>
-            !selectedGroup || selectedGroup === DEFAULT_GROUP.FAVORITES
-              ? openGroupEditor()
-              : openGroupEditor(selectedGroup)
-        "
+        @click="() => (editingGroupsBan ? openGroupEditor() : openGroupEditor(selectedGroup))"
       >
-        {{
-          !selectedGroup || selectedGroup === DEFAULT_GROUP.FAVORITES ? t('list.createGroup') : t('list.editGroup')
-        }}
+        {{ editingGroupsBan ? t('list.createGroup') : t('list.editGroup') }}
       </ui3n-button>
     </div>
 
     <div :class="$style.list">
-      <template v-if="filteredRecords.length">
-        <record-list-item
-          v-for="item in filteredRecords"
-          :key="item.id"
-          :item="item"
-          :sync-process="recordSyncProcess(item.id)"
-          :selected-group="selectedGroup"
-          :is-active="item.id === activeItemId"
-          @toggle:active="setActiveItem(item.id)"
-          @open="openRecordEditor"
-          @set:favorite="setFavorite"
-          @show:images="(v: string[]) => (optionsOfShowingImages = v)"
-        />
-      </template>
+      <custom-scroll-bar>
+        <template v-if="filteredRecords.length">
+          <record-list-item
+            v-for="item in filteredRecords"
+            :key="item.id"
+            :item="item"
+            :sync-process="recordSyncProcess(item.id)"
+            :selected-group="selectedGroup"
+            :is-active="item.id === activeItemId"
+            @toggle:active="setActiveItem(item.id)"
+            @open="openRecordEditor"
+            @set:favorite="setFavorite"
+            @show:images="(v: string[]) => (optionsOfShowingImages = v)"
+          />
+        </template>
 
-      <span
-        v-else
-        :class="$style.noData"
-      >
-        {{ t('list.noData') }}
-      </span>
+        <span
+          v-else
+          :class="$style.noData"
+        >
+          {{ t('list.noData') }}
+        </span>
+      </custom-scroll-bar>
     </div>
 
     <div :class="$style.action">
       <ui3n-button
+        size="large"
         block
         icon="round-plus"
         icon-position="left"
@@ -202,7 +196,7 @@
   .recordList {
     --list-search-block-height: 64px;
     --list-group-selector-height: 48px;
-    --list-action-block-height: 64px;
+    --list-action-block-height: 68px;
 
     position: relative;
     width: 100%;
@@ -227,15 +221,19 @@
       column-gap: var(--spacing-m);
 
       .groupSelector {
+        display: flex;
         flex-grow: 1;
+        font-size: var(--font-14);
+        font-weight: 600;
+        line-height: var(--font-16);
+        color: var(--color-text-block-primary-default);
+        padding: var(--spacing-s);
+        border-radius: var(--spacing-s);
+        background-color: var(--color-bg-button-tritery-default);
       }
 
       .groupSelectorBtn {
         width: fit-content;
-      }
-
-      .groupName {
-        color: var(--color-text-table-primary-default);
       }
     }
 
@@ -245,11 +243,10 @@
       height: calc(
         100% - var(--list-search-block-height) - var(--list-group-selector-height) - var(
             --list-action-block-height
-          )
+          ) - var(--spacing-xs)
       );
-      overflow-x: hidden;
-      overflow-y: auto;
       padding-top: var(--spacing-xs);
+      margin-bottom: var(--spacing-s);
 
       .noData {
         display: block;
@@ -258,6 +255,10 @@
         font-size: var(--font-16);
         font-weight: 500;
         color: var(--color-text-control-secondary-default);
+      }
+
+      div[class*='scrollbarContainer'] {
+        padding-top: var(--spacing-xs);
       }
     }
 

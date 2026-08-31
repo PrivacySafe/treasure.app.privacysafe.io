@@ -25,6 +25,7 @@
   import type { ProcessedImage, TreasureCardRecord, TreasureGroup, TreasureRecord } from '@shared/@types';
   import ImagePreview from '@/common/components/image-preview.vue';
   import ImageEditor from '@/common/components/image-editor.vue';
+  import CustomScrollBar from '@/common/components/custom-scroll-bar.vue';
 
   const ALLOWED_FILE_TYPES = ['png', 'jpg', 'jpeg'];
   const ALLOWED_QUANTITY = 10;
@@ -175,99 +176,101 @@
 
 <template>
   <div :class="[$style.cardEditor, isLoading && $style.blurry]">
-    <div :class="$style.row">
-      <ui3n-input
-        :model-value="record.resource"
-        :label="`${t('recordDialog.form.fields.cardName.label')}*`"
-        :placeholder="t('recordDialog.form.fields.cardName.placeholder')"
-        :rules="cardNameRules"
-        :display-state-mode="errorMessage ? 'error' : undefined"
-        :display-state-message="errorMessage"
-        :disabled="isLoading"
-        @update:model-value="(v: string) => handleInput('resource', v)"
-        @update:valid="(v: boolean) => updateValidation('resource', v)"
-      />
-    </div>
+    <custom-scroll-bar :thumb-height="240">
+      <div :class="$style.row">
+        <ui3n-input
+          :model-value="record.resource"
+          :label="`${t('recordDialog.form.fields.cardName.label')}*`"
+          :placeholder="t('recordDialog.form.fields.cardName.placeholder')"
+          :rules="cardNameRules"
+          :display-state-mode="errorMessage ? 'error' : undefined"
+          :display-state-message="errorMessage"
+          :disabled="isLoading"
+          @update:model-value="(v: string) => handleInput('resource', v)"
+          @update:valid="(v: boolean) => updateValidation('resource', v)"
+        />
+      </div>
 
-    <div :class="$style.row">
-      <ui3n-selector
-        :model-value="record.group"
-        :label="t('recordDialog.form.fields.group.label')"
-        :placeholder="t('recordDialog.form.fields.group.placeholder')"
-        :items="sortedGroups"
-        item-display="name"
-        clearable
-        :disabled="isLoading"
-        @update:model-value="(v: string) => handleInput('group', v || '')"
-      />
-    </div>
+      <div :class="$style.row">
+        <ui3n-selector
+          :model-value="record.group"
+          :label="t('recordDialog.form.fields.group.label')"
+          :placeholder="t('recordDialog.form.fields.group.placeholder')"
+          :items="sortedGroups"
+          item-display="name"
+          clearable
+          :disabled="isLoading"
+          @update:model-value="(v: string) => handleInput('group', v || '')"
+        />
+      </div>
 
-    <div
-      v-if="!isEmpty(images)"
-      :class="[$style.images, mobileMode && $style.imagesMobile]"
-    >
-      <image-preview
-        v-for="img in filteredImages"
-        :key="img.name"
-        :source="img"
-        @processed="(v: ProcessedImage) => onProcessed(v)"
-        @delete="(v: ProcessedImage) => markForDeletion(v)"
-        @click.stop.prevent="() => openImageEditor(img.name)"
-      />
-    </div>
-
-    <div :class="[$style.uploadBlock, mobileMode && $style.uploadBlockMobile]">
-      <ui3n-input-file
-        v-if="mobileMode"
-        multiple
-        :allowed-file-types="ALLOWED_FILE_TYPES.map((ext: string) => `.${ext}`).join(',')"
-        :disabled="isLoading || ALLOWED_QUANTITY - size(images) <= 0"
-        :class="$style.fileUploaderWrapper"
-        @update:model-value="onFilesSelect"
+      <div
+        v-if="!isEmpty(images)"
+        :class="[$style.images, mobileMode && $style.imagesMobile]"
       >
-        <div :class="$style.fileUploader">
-          <span>{{ t('recordDialog.form.image.upload_area') }}</span>
-          <span :class="$style.imageInfo">
-            {{ t('recordDialog.form.image.info') }}
-          </span>
-        </div>
-      </ui3n-input-file>
+        <image-preview
+          v-for="img in filteredImages"
+          :key="img.name"
+          :source="img"
+          @processed="(v: ProcessedImage) => onProcessed(v)"
+          @delete="(v: ProcessedImage) => markForDeletion(v)"
+          @click.stop.prevent="() => openImageEditor(img.name)"
+        />
+      </div>
 
-      <ui3n-drop-files
-        v-else
-        title=""
-        permanent-display
-        @select="onFilesSelect"
-      >
-        <template #additional-text>
-          <div :class="$style.inputFile">
-            <div :class="$style.imageInfo">
+      <div :class="[$style.uploadBlock, mobileMode && $style.uploadBlockMobile]">
+        <ui3n-input-file
+          v-if="mobileMode"
+          multiple
+          :allowed-file-types="ALLOWED_FILE_TYPES.map((ext: string) => `.${ext}`).join(',')"
+          :disabled="isLoading || ALLOWED_QUANTITY - size(images) <= 0"
+          :class="$style.fileUploaderWrapper"
+          @update:model-value="onFilesSelect"
+        >
+          <div :class="$style.fileUploader">
+            <span>{{ t('recordDialog.form.image.upload_area') }}</span>
+            <span :class="$style.imageInfo">
               {{ t('recordDialog.form.image.info') }}
-            </div>
-
-            <ui3n-input-file
-              multiple
-              :allowed-file-types="ALLOWED_FILE_TYPES.map((ext: string) => `.${ext}`).join(',')"
-              :max-mumber-of-files="ALLOWED_QUANTITY"
-              :button-text="t('recordDialog.form.image.upload_btn')"
-              :disabled="isLoading || ALLOWED_QUANTITY - size(images) <= 0"
-              @update:model-value="onFilesSelect"
-            />
+            </span>
           </div>
-        </template>
-      </ui3n-drop-files>
-    </div>
+        </ui3n-input-file>
 
-    <div
-      v-if="editableImage"
-      :class="$style.imageEditorWrapper"
-    >
-      <image-editor
-        :source="editableImage.data"
-        @cropped="(v: Uint8Array) => onCrop(v)"
-        @close="() => (editableImage = null)"
-      />
-    </div>
+        <ui3n-drop-files
+          v-else
+          title=""
+          permanent-display
+          @select="onFilesSelect"
+        >
+          <template #additional-text>
+            <div :class="$style.inputFile">
+              <div :class="$style.imageInfo">
+                {{ t('recordDialog.form.image.info') }}
+              </div>
+
+              <ui3n-input-file
+                multiple
+                :allowed-file-types="ALLOWED_FILE_TYPES.map((ext: string) => `.${ext}`).join(',')"
+                :max-mumber-of-files="ALLOWED_QUANTITY"
+                :button-text="t('recordDialog.form.image.upload_btn')"
+                :disabled="isLoading || ALLOWED_QUANTITY - size(images) <= 0"
+                @update:model-value="onFilesSelect"
+              />
+            </div>
+          </template>
+        </ui3n-drop-files>
+      </div>
+
+      <div
+        v-if="editableImage"
+        :class="$style.imageEditorWrapper"
+      >
+        <image-editor
+          :source="editableImage.data"
+          @cropped="(v: Uint8Array) => onCrop(v)"
+          @close="() => (editableImage = null)"
+        />
+      </div>
+    </custom-scroll-bar>
   </div>
 </template>
 
@@ -276,9 +279,7 @@
     position: relative;
     width: 100%;
     max-height: calc(100dvh - 160px);
-    padding: var(--spacing-m);
-    overflow-x: hidden;
-    overflow-y: auto;
+    padding: var(--spacing-m) 0 var(--spacing-m) var(--spacing-m);
 
     &.blurry {
       filter: blur(2px);
@@ -305,7 +306,7 @@
       position: relative;
       width: 100%;
       height: 168px;
-      margin-top: var(--spacing-m);
+      margin: var(--spacing-m) 0;
 
       &.uploadBlockMobile {
         height: 96px;
@@ -359,6 +360,13 @@
       position: absolute;
       inset: 0;
       background-color: var(--color-bg-block-primary-default);
+    }
+
+    div[class*='scrollbarContainer'] {
+      max-height: calc(100dvh - 160px);
+      margin-top: -12px;
+      padding-top: 12px;
+      padding-right: var(--spacing-m);
     }
   }
 </style>

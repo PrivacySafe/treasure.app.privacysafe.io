@@ -30,6 +30,7 @@
   import ConfirmationDialog from '@/common/components/dialogs/confirmation-dialog.vue';
   import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants.ts';
   import { appTreasureDenoSrv } from '@/common/services/service-provider.ts';
+  import CustomScrollBar from '@/common/components/custom-scroll-bar.vue';
 
   const route = useRoute();
   const router = useRouter();
@@ -39,7 +40,7 @@
 
   const recordStore = useRecordStore();
   const { records } = storeToRefs(recordStore);
-  const { addRecord, updateRecord, removeRecord } = recordStore;
+  const { addRecord, updateRecord, removeRecord, addRecordToRecent } = recordStore;
 
   const recordId = computed(() => (route.params?.id || 'new') as string);
   const groupId = computed(() => (route.query?.groupId || '') as string);
@@ -122,6 +123,7 @@
         await addRecord(recordData.value);
       } else {
         await updateRecord(recordId.value, recordData.value);
+        await addRecordToRecent(recordId.value);
       }
 
       $createNotice({
@@ -209,37 +211,39 @@
     </div>
 
     <div :class="$style.recordBody">
-      <card-editor
-        v-if="recordData.type === RECORD_TYPE.CARD"
-        :record="recordData"
-        :sorted-groups="sortedGroups"
-        :images="images"
-        mobile-mode
-        @update:record="(v: TreasureRecord) => (recordData = v)"
-        @update:images="(v: ProcessedImage[]) => (images = v)"
-        @update:image="(v: { index: number; data: ProcessedImage }) => (images[v.index] = v.data)"
-        @update:validation-flag="(v: boolean) => (isFormValid = v)"
-      />
+      <custom-scroll-bar>
+        <card-editor
+          v-if="recordData.type === RECORD_TYPE.CARD"
+          :record="recordData"
+          :sorted-groups="sortedGroups"
+          :images="images"
+          mobile-mode
+          @update:record="(v: TreasureRecord) => (recordData = v)"
+          @update:images="(v: ProcessedImage[]) => (images = v)"
+          @update:image="(v: { index: number; data: ProcessedImage }) => (images[v.index] = v.data)"
+          @update:validation-flag="(v: boolean) => (isFormValid = v)"
+        />
 
-      <bank-card-editor
-        v-else-if="recordData.type === RECORD_TYPE.BANK_CARD"
-        :record="recordData"
-        :sorted-groups="sortedGroups"
-        :is-loading="isLoading"
-        mobile-mode
-        @update:record="(v: TreasureRecord) => (recordData = v)"
-        @update:validation-flag="(v: boolean) => (isFormValid = v)"
-      />
+        <bank-card-editor
+          v-else-if="recordData.type === RECORD_TYPE.BANK_CARD"
+          :record="recordData"
+          :sorted-groups="sortedGroups"
+          :is-loading="isLoading"
+          mobile-mode
+          @update:record="(v: TreasureRecord) => (recordData = v)"
+          @update:validation-flag="(v: boolean) => (isFormValid = v)"
+        />
 
-      <record-editor
-        v-else
-        :record="recordData"
-        :records="records"
-        :sorted-groups="sortedGroups"
-        :is-loading="isLoading"
-        @update:record="(v: TreasureRecord) => (recordData = v)"
-        @update:validation-flag="(v: boolean) => (isFormValid = v)"
-      />
+        <record-editor
+          v-else
+          :record="recordData"
+          :records="records"
+          :sorted-groups="sortedGroups"
+          :is-loading="isLoading"
+          @update:record="(v: TreasureRecord) => (recordData = v)"
+          @update:validation-flag="(v: boolean) => (isFormValid = v)"
+        />
+      </custom-scroll-bar>
     </div>
 
     <div :class="$style.recordActions">

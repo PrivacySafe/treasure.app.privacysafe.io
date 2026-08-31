@@ -22,6 +22,7 @@
   import 'vue-ccard/src/style.css';
   import { Ui3nInput } from '@v1nt1248/3nclient-lib';
   import type { TreasureBankCardRecord, TreasureGroup, TreasureRecord } from '@shared/@types';
+  import CustomScrollBar from '@/common/components/custom-scroll-bar.vue';
 
   const props = defineProps<{
     record: TreasureBankCardRecord;
@@ -213,90 +214,92 @@
 
 <template>
   <div :class="[$style.bankCardEditor, isLoading && $style.blurry]">
-    <div :class="$style.row">
-      <ui3n-input
-        :model-value="record.name"
-        :label="`${t('recordDialog.form.fields.bancCardName.label')}*`"
-        :placeholder="t('recordDialog.form.fields.bancCardName.placeholder')"
-        :rules="recordName"
-        :display-state-mode="errorMessages.name ? 'error' : undefined"
-        :display-state-message="errorMessages.name"
-        :disabled="isLoading"
-        @input="(v: string) => handleInputRecordName(v)"
-        @update:valid="(v: boolean) => updateValidation('name', v)"
-      />
-    </div>
+    <custom-scroll-bar :thumb-height="240">
+      <div :class="$style.row">
+        <ui3n-input
+          :model-value="record.name"
+          :label="`${t('recordDialog.form.fields.bancCardName.label')}*`"
+          :placeholder="t('recordDialog.form.fields.bancCardName.placeholder')"
+          :rules="recordName"
+          :display-state-mode="errorMessages.name ? 'error' : undefined"
+          :display-state-message="errorMessages.name"
+          :disabled="isLoading"
+          @input="(v: string) => handleInputRecordName(v)"
+          @update:valid="(v: boolean) => updateValidation('name', v)"
+        />
+      </div>
 
-    <div :class="$style.cardWrapper">
-      <vue-c-card
-        :number="record.resource"
-        :holder="record.username"
-        :exp="record.exp"
-        :cvc="record.password"
-        :is-typing-cvc="isTypingCvc"
-        :width="300"
-      />
-    </div>
+      <div :class="$style.cardWrapper">
+        <vue-c-card
+          :number="record.resource"
+          :holder="record.username"
+          :exp="record.exp"
+          :cvc="record.password"
+          :is-typing-cvc="isTypingCvc"
+          :width="300"
+        />
+      </div>
 
-    <div :class="$style.row">
-      <ui3n-input
-        :model-value="record.resource"
-        :label="`${t('recordDialog.form.fields.cardNumber.label')}*`"
-        :placeholder="t('recordDialog.form.fields.cardNumber.placeholder')"
-        :rules="cardNumberRules"
-        :display-state-mode="errorMessages.resource ? 'error' : undefined"
-        :display-state-message="errorMessages.resource"
-        :disabled="isLoading"
-        @init="onCardNumberInputElementInit"
-        @input="(v: string) => handleInputCardNumber(v)"
-        @update:valid="(v: boolean) => updateValidation('resource', v)"
-      />
-    </div>
+      <div :class="$style.row">
+        <ui3n-input
+          :model-value="record.resource"
+          :label="`${t('recordDialog.form.fields.cardNumber.label')}*`"
+          :placeholder="t('recordDialog.form.fields.cardNumber.placeholder')"
+          :rules="cardNumberRules"
+          :display-state-mode="errorMessages.resource ? 'error' : undefined"
+          :display-state-message="errorMessages.resource"
+          :disabled="isLoading"
+          @init="onCardNumberInputElementInit"
+          @input="(v: string) => handleInputCardNumber(v)"
+          @update:valid="(v: boolean) => updateValidation('resource', v)"
+        />
+      </div>
 
-    <div :class="$style.row">
-      <ui3n-input
-        :model-value="record.username"
-        :label="`${t('recordDialog.form.fields.cardHolder.label')}*`"
-        :placeholder="t('recordDialog.form.fields.cardHolder.placeholder')"
-        :rules="cardHolderRules"
-        :display-state-mode="errorMessages.username ? 'error' : undefined"
-        :display-state-message="errorMessages.username"
-        :disabled="isLoading"
-        @input="(v: string) => handleInputCardHolder(v)"
-        @update:valid="(v: boolean) => updateValidation('username', v)"
-      />
-    </div>
+      <div :class="$style.row">
+        <ui3n-input
+          :model-value="record.username"
+          :label="`${t('recordDialog.form.fields.cardHolder.label')}*`"
+          :placeholder="t('recordDialog.form.fields.cardHolder.placeholder')"
+          :rules="cardHolderRules"
+          :display-state-mode="errorMessages.username ? 'error' : undefined"
+          :display-state-message="errorMessages.username"
+          :disabled="isLoading"
+          @input="(v: string) => handleInputCardHolder(v)"
+          @update:valid="(v: boolean) => updateValidation('username', v)"
+        />
+      </div>
 
-    <div :class="[$style.row, $style.double]">
-      <ui3n-input
-        :model-value="record.exp"
-        :label="`${t('recordDialog.form.fields.cardExp.label')}*`"
-        :placeholder="t('recordDialog.form.fields.cardExp.placeholder')"
-        :rules="cardExpRules"
-        :display-state-mode="errorMessages.exp ? 'error' : undefined"
-        :display-state-message="errorMessages.exp"
-        :disabled="isLoading"
-        @init="onCardExpInputElementInit"
-        @input="(v: string) => handleInputCardExp(v)"
-        @update:valid="(v: boolean) => updateValidation('exp', v)"
-      />
+      <div :class="[$style.row, $style.double]">
+        <ui3n-input
+          :model-value="record.exp"
+          :label="`${t('recordDialog.form.fields.cardExp.label')}*`"
+          :placeholder="t('recordDialog.form.fields.cardExp.placeholder')"
+          :rules="cardExpRules"
+          :display-state-mode="errorMessages.exp ? 'error' : undefined"
+          :display-state-message="errorMessages.exp"
+          :disabled="isLoading"
+          @init="onCardExpInputElementInit"
+          @input="(v: string) => handleInputCardExp(v)"
+          @update:valid="(v: boolean) => updateValidation('exp', v)"
+        />
 
-      <ui3n-input
-        :model-value="record.password"
-        type="password"
-        :label="`${t('recordDialog.form.fields.cardCvv.label')}*`"
-        :placeholder="t('recordDialog.form.fields.cardCvv.placeholder')"
-        :rules="cardCvvRules"
-        :display-state-mode="errorMessages.password ? 'error' : undefined"
-        :display-state-message="errorMessages.password"
-        :disabled="isLoading"
-        @init="onCardCvvInputElementInit"
-        @focus="() => (isTypingCvc = true)"
-        @blur="() => (isTypingCvc = false)"
-        @input="(v: string) => handleInputCardCvv(v)"
-        @update:valid="(v: boolean) => updateValidation('password', v)"
-      />
-    </div>
+        <ui3n-input
+          :model-value="record.password"
+          type="password"
+          :label="`${t('recordDialog.form.fields.cardCvv.label')}*`"
+          :placeholder="t('recordDialog.form.fields.cardCvv.placeholder')"
+          :rules="cardCvvRules"
+          :display-state-mode="errorMessages.password ? 'error' : undefined"
+          :display-state-message="errorMessages.password"
+          :disabled="isLoading"
+          @init="onCardCvvInputElementInit"
+          @focus="() => (isTypingCvc = true)"
+          @blur="() => (isTypingCvc = false)"
+          @input="(v: string) => handleInputCardCvv(v)"
+          @update:valid="(v: boolean) => updateValidation('password', v)"
+        />
+      </div>
+    </custom-scroll-bar>
   </div>
 </template>
 
@@ -305,9 +308,7 @@
     position: relative;
     width: 100%;
     max-height: calc(100dvh - 160px);
-    padding: var(--spacing-m);
-    overflow-x: hidden;
-    overflow-y: auto;
+    padding: var(--spacing-m) 0 var(--spacing-m) var(--spacing-m);
 
     &.blurry {
       filter: blur(2px);
@@ -340,6 +341,13 @@
         align-items: flex-end;
         column-gap: var(--spacing-m);
       }
+    }
+
+    div[class*='scrollbarContainer'] {
+      max-height: calc(100dvh - 160px);
+      margin-top: -12px;
+      padding-top: 12px;
+      padding-right: var(--spacing-m);
     }
   }
 </style>

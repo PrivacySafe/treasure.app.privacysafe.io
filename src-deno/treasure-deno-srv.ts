@@ -342,7 +342,7 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
     const list = await fs.listFolder('');
     const workResultsPromises: Promise<TreasureRecord | null>[] = [];
     for (const item of list) {
-      if (item.isFile && item.name !== GROUPS_FILE_NAME) {
+      if (item.isFile && item.name !== GROUPS_FILE_NAME && item.name !== 'confs.json') {
         workResultsPromises.push(getRecord(item.name));
       }
     }
@@ -351,7 +351,7 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
     return res.reduce(
       (res, item) => {
         if (item.status === 'fulfilled') {
-          item.value && res.records.push(item.value);
+          item.value && item.value.id && res.records.push(item.value);
         } else {
           res.errors.push(item.reason);
         }

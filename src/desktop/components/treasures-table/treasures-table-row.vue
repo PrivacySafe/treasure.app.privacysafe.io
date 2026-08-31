@@ -71,8 +71,13 @@
 
     await copyToClipboard(value);
 
-    if (props.selectedGroup !== DEFAULT_GROUP.RECENT) {
-      await addRecordToRecent(props.row.id);
+    await addRecordToRecent(props.row.id);
+    if (props.selectedGroup === DEFAULT_GROUP.RECENT) {
+      const container = document.getElementById('treasuresTable');
+
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   }
 

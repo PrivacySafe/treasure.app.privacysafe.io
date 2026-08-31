@@ -15,6 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { useRouter } from 'vue-router';
+import size from 'lodash/size';
 import { APP_ROUTES } from '@/common/constants';
 import type { TreasureRecord } from '@shared/@types';
 
@@ -38,6 +39,29 @@ export function useSort() {
     return router.push(newRouterData);
   }
 
+  function getRecordFieldValue(record: TreasureRecord, field: keyof TreasureRecord) {
+    if (field === 'name') {
+      return `${record.name || record.resource}${record.resource}`;
+    }
+
+    if ('username' in record) {
+      return record.username as string;
+    }
+
+    return size(record.images);
+  }
+
+  function compareValues(aValue: string | number, bValue: string | number): boolean {
+    const isAValueString = typeof aValue === 'string';
+    const isBValueString = typeof aValue === 'string';
+
+    if (!isAValueString && !isBValueString) {
+      return (aValue as number) > (bValue as number);
+    }
+
+    return `${aValue}`.toLowerCase() > `${bValue}`.toLowerCase();
+  }
+
   function sortTreasuresTableData(
     a: TreasureRecord,
     b: TreasureRecord,
@@ -48,22 +72,28 @@ export function useSort() {
       return 0;
     }
 
-    // @ts-ignore
-    const aValue = (field === 'username' ? a.username : `${a.name || a.resource}${a.resource}`) as string;
-    // @ts-ignore
-    const bValue = (field === 'username' ? b.username : `${b.name || b.resource}${b.resource}`) as string;
+    const aValue = getRecordFieldValue(a, field);
+    const bValue = getRecordFieldValue(b, field);
 
-    return aValue.toLowerCase() > bValue.toLowerCase()
-      ? direction === 'desc'
-        ? 1
-        : -1
-      : direction === 'desc'
-        ? -1
-        : 1;
+    return compareValues(aValue, bValue) ? (direction === 'desc' ? 1 : -1) : direction === 'desc' ? -1 : 1;
+  }
+
+  function sortTreasuresRecentData(
+    a: TreasureRecord,
+    b: TreasureRecord,
+    field: keyof TreasureRecord,
+    direction: 'asc' | 'desc',
+  ) {
+    if (!['name', 'username'].includes(field as keyof TreasureRecord as string)) {
+      return 0;
+    }
+
+    return direction === 'desc' ? -1 : 1;
   }
 
   return {
     changeSort,
     sortTreasuresTableData,
+    sortTreasuresRecentData,
   };
 }

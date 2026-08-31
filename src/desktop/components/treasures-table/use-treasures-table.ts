@@ -41,7 +41,7 @@ export function useTreasuresTable() {
             : selectedGroup.value === DEFAULT_GROUP.BANK_CARDS
               ? t('treasuresTable.header.holderName')
               : t('treasuresTable.header.username'),
-        sortable: selectedGroup.value !== DEFAULT_GROUP.CARDS,
+        sortable: true,
       },
     ];
 

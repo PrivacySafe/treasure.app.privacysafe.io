@@ -21,7 +21,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@shared/*": ["./shared/*"],
@@ -29,5 +28,5 @@
     }
   },
   "include": ["./vite.config.ts", "./src/**/*", "./shared/**/*", "./src-deno/**/*", "./@types/**/*"],
-  "exclude": ["node_modules", "public", "app"]
+  "exclude": ["./node_modules", "./public", "./app"]
 }

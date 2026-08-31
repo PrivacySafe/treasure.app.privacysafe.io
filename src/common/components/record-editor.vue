@@ -206,8 +206,6 @@
     width: 100%;
     max-height: calc(100dvh - 160px);
     padding: var(--spacing-m);
-    overflow-x: hidden;
-    overflow-y: auto;
 
     &.blurry {
       filter: blur(2px);

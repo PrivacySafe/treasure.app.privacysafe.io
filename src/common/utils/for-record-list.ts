@@ -28,7 +28,7 @@ export function prepareRecordList(
 ) {
   return list
     .filter(r => {
-      const { resource, name = '', username = '' } = r;
+      const { resource = '', name = '', username = '' } = r;
       const processedResource = resource.toLowerCase();
       const processedName = name.toLowerCase() || '';
       const processedUsername = username.toLowerCase() || '';

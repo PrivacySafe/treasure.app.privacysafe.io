@@ -274,11 +274,11 @@
     --name-icon-size: 36px;
 
     position: relative;
-    width: calc(100% - var(--spacing-m));
+    width: calc(100% - var(--spacing-ml));
     background-color: var(--color-bg-block-primary-default);
     overflow: hidden;
     transition: height 0.25s ease-in-out;
-    margin: 0 auto 12px;
+    margin: 0 auto 12px var(--spacing-s);
     border-radius: var(--spacing-m);
     box-shadow:
       3px 3px 5px 2px var(--shadow-key-2),

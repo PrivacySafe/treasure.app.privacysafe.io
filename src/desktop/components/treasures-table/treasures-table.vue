@@ -25,6 +25,7 @@
   import type { SyncType, TreasureRecord } from '@shared/@types';
   import TreasuresTableRow from './treasures-table-row.vue';
   import ImagesSlider from '@/desktop/components/images-slider.vue';
+  import CustomScrollBar from '@/common/components/custom-scroll-bar.vue';
 
   const props = defineProps<{
     selectedGroup: string;
@@ -70,39 +71,41 @@
 
 <template>
   <div :class="$style.treasuresTable">
-    <ui3n-table
-      ref="tableComponent"
-      :config="{
-        ...tableData.config,
-        sortOrder: tableSort,
-      }"
-      :head="tableData.head"
-      :body="{ content: sortedTableData }"
-      @change:sort="changeSort"
-    >
-      <template #row="{ row, columnStyle }">
-        <treasures-table-row
-          :row="row"
-          :column-style="columnStyle"
-          :sync-process="recordSyncProcess(row.id)"
-          :selected-group="selectedGroup"
-          @open="emits('edit', $event)"
-          @set:favorite="emits('set:favorite', $event)"
-          @show:images="(v: string[]) => (optionsOfShowingImages = v)"
-        />
-      </template>
+    <custom-scroll-bar :thumb-height="240">
+      <ui3n-table
+        ref="tableComponent"
+        :config="{
+          ...tableData.config,
+          sortOrder: tableSort,
+        }"
+        :head="tableData.head"
+        :body="{ content: sortedTableData }"
+        @change:sort="changeSort"
+      >
+        <template #row="{ row, columnStyle }">
+          <treasures-table-row
+            :row="row"
+            :column-style="columnStyle"
+            :sync-process="recordSyncProcess(row.id)"
+            :selected-group="selectedGroup"
+            @open="emits('edit', $event)"
+            @set:favorite="emits('set:favorite', $event)"
+            @show:images="(v: string[]) => (optionsOfShowingImages = v)"
+          />
+        </template>
 
-      <template #unused-place>
-        <div
-          v-if="!sortedTableData.length"
-          :class="$style.noData"
-        >
-          <span :class="$style.noDataText">
-            {{ t('treasuresTable.nodata') }}
-          </span>
-        </div>
-      </template>
-    </ui3n-table>
+        <template #unused-place>
+          <div
+            v-if="!sortedTableData.length"
+            :class="$style.noData"
+          >
+            <span :class="$style.noDataText">
+              {{ t('treasuresTable.nodata') }}
+            </span>
+          </div>
+        </template>
+      </ui3n-table>
+    </custom-scroll-bar>
 
     <teleport
       v-if="optionsOfShowingImages"
@@ -121,6 +124,11 @@
     position: relative;
     width: 100%;
     height: 100%;
+
+    div[class*='ui3nTable'] {
+      height: auto;
+      overflow: visible !important;
+    }
   }
 
   .noData {

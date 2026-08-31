@@ -15,6 +15,7 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { computed, ref } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { defineStore } from 'pinia';
 import cloneDeep from 'lodash/cloneDeep';
 import size from 'lodash/size';
@@ -27,6 +28,7 @@ import { DEFAULT_GROUP, RECORD_TYPE } from '@shared/constants.ts';
 const MAX_RECENT_LIST_SIZE = 20;
 
 export const useRecordStore = defineStore('records', () => {
+  const { t } = useI18n();
   const { setCommonLoading } = useAppStore();
 
   const idsOfRecentRecords = ref<string[]>([]);
@@ -40,11 +42,23 @@ export const useRecordStore = defineStore('records', () => {
     Object.values(groups.value).sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
   );
 
+  const sortedGroupsAll = computed(() => [
+    { id: 'all', name: t('list.all') },
+    { id: DEFAULT_GROUP.RECENT, name: t('list.recent') },
+    { id: DEFAULT_GROUP.CARDS, name: t('list.cards') },
+    { id: DEFAULT_GROUP.BANK_CARDS, name: t('list.bank_cards') },
+    { id: DEFAULT_GROUP.FAVORITES, name: t('list.favorites') },
+    ...sortedGroups.value,
+  ]);
+
   const recentRecords = computed(() => records.value.filter(r => idsOfRecentRecords.value.includes(r.id)));
   const favoritesRecords = computed(() => records.value.filter(r => r.isFavorite));
   const cardsRecords = computed(() => records.value.filter(r => r.type === RECORD_TYPE.CARD));
   const bankCardsRecords = computed(() => records.value.filter(r => r.type === RECORD_TYPE.BANK_CARD));
   const numOfRecentRecords = computed(() => recentRecords.value.length);
+  const sortedRecentRecords = computed(() =>
+    idsOfRecentRecords.value.map(id => records.value.find(item => item.id === id)),
+  );
 
   const recordsByGroups = computed(() =>
     records.value.reduce(
@@ -62,7 +76,7 @@ export const useRecordStore = defineStore('records', () => {
         return res;
       },
       {
-        [DEFAULT_GROUP.RECENT]: recentRecords.value,
+        [DEFAULT_GROUP.RECENT]: sortedRecentRecords.value,
         [DEFAULT_GROUP.FAVORITES]: favoritesRecords.value,
         [DEFAULT_GROUP.CARDS]: cardsRecords.value,
         [DEFAULT_GROUP.BANK_CARDS]: bankCardsRecords.value,
@@ -220,9 +234,15 @@ export const useRecordStore = defineStore('records', () => {
     }
   }
 
+  async function $reset() {
+    idsOfRecentRecords.value = [];
+    await saveRecentRecords();
+  }
+
   return {
     groups,
     sortedGroups,
+    sortedGroupsAll,
     allGroupsNames,
 
     records,
@@ -248,5 +268,6 @@ export const useRecordStore = defineStore('records', () => {
     saveRecentRecords,
     addRecordToRecent,
     removeRecordFromRecent,
+    $reset,
   };
 });

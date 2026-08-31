@@ -15,63 +15,107 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script lang="ts" setup>
+  import { computed } from 'vue';
+  import { useRoute, useRouter } from 'vue-router';
   import { useI18n } from 'vue-i18n';
-  import { Ui3nButton } from '@v1nt1248/3nclient-lib';
+  import { storeToRefs } from 'pinia';
+  import { Ui3nButton, Ui3nMobileMenu, Ui3nMobileMenuItem } from '@v1nt1248/3nclient-lib';
+  import { useRecordStore } from '@/common/stores/record.store';
+  import type { TreasureGroup } from '@shared/@types';
   import ContactIcon from '@/common/components/ui/contact-icon.vue';
+  import CustomScrollBar from '@/common/components/custom-scroll-bar.vue';
 
   defineProps<{
+    isMenuOpen: boolean;
     user: string;
+    connectivityStatus: string;
     appExit?: () => void;
   }>();
+  const emits = defineEmits<{
+    (event: 'update:modelValue', value: boolean): void;
+  }>();
 
+  const route = useRoute();
+  const router = useRouter();
   const { t } = useI18n();
+
+  const recordStore = useRecordStore();
+  const { sortedGroupsAll } = storeToRefs(recordStore);
+
+  const selectedGroup = computed(() => (route.query?.group as string) || 'all');
+
+  async function selectGroup(group: TreasureGroup) {
+    await router.push({ query: { group: group.id } });
+    emits('update:modelValue', false);
+  }
 </script>
 
 <template>
-  <div :class="$style.appMenu">
-    <div :class="$style.appMenuHeader">
-      <contact-icon
-        :size="32"
-        :name="user"
-        readonly
-      />
+  <ui3n-mobile-menu
+    :model-value="isMenuOpen"
+    width="260px"
+    with-blur
+    @update:model-value="emits('update:modelValue', $event)"
+  >
+    <template #header>
+      <div :class="$style.menuHeader">
+        <contact-icon
+          :size="36"
+          :name="user"
+          readonly
+        />
 
-      <div :class="$style.info">
-        <div :class="$style.user">
-          {{ user }}
+        <div :class="$style.info">
+          <div :class="$style.user">
+            {{ user }}
+          </div>
+
+          <div :class="$style.status">
+            <span>{{ t('app.status.label') }}</span>
+
+            <b :class="connectivityStatus === 'online' && $style.ok" />
+          </div>
         </div>
       </div>
-    </div>
+    </template>
 
-    <div :class="$style.appMenuBody">
-      <ui3n-button
-        :class="$style.logout"
-        @click="() => appExit && appExit()"
-      >
-        {{ t('app.exit') }}
-      </ui3n-button>
-    </div>
-  </div>
+    <template #menuBody>
+      <div :class="$style.body">
+        <custom-scroll-bar>
+          <ui3n-mobile-menu-item
+            v-for="item in sortedGroupsAll"
+            :key="item.id"
+            :item="item"
+            :is-active="item.id === selectedGroup"
+            :class="$style.item"
+            @select-item="selectGroup"
+          />
+        </custom-scroll-bar>
+      </div>
+    </template>
+
+    <template #footer>
+      <div :class="$style.action">
+        <ui3n-button
+          size="large"
+          block
+          @click="() => appExit && appExit()"
+        >
+          {{ t('app.exit') }}
+        </ui3n-button>
+      </div>
+    </template>
+  </ui3n-mobile-menu>
 </template>
 
 <style lang="scss" module>
   @use '@/assets/styles/_mixins' as mixins;
 
-  .appMenu {
-    --app-menu-header-heigh: 48px;
-
-    position: relative;
-    width: 100%;
-    height: 100%;
-    background-color: var(--color-bg-block-primary-default);
-    border-right: 1px solid var(--color-border-block-primary-default);
-  }
-
-  .appMenuHeader {
+  .menuHeader {
     display: flex;
     width: 100%;
-    height: var(--app-menu-header-heigh);
-    padding-left: var(--spacing-s);
+    height: 64px;
+    padding: 0 var(--spacing-s);
     justify-content: flex-start;
     align-items: center;
     column-gap: var(--spacing-s);
@@ -80,34 +124,55 @@
   .info {
     position: relative;
     width: calc(100% - 44px);
-    color: var(--color-text-control-primary-default);
   }
 
   .user {
     font-size: var(--font-14);
     font-weight: 700;
-    line-height: var(--font-16);
+    line-height: var(--font-18);
     @include mixins.text-overflow-ellipsis();
   }
 
   .status {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    column-gap: var(--spacing-s);
     font-size: var(--font-12);
-    font-weight: 600;
-    line-height: var(--font-14);
+    font-weight: 500;
+    line-height: var(--font-16);
+
+    b {
+      position: relative;
+      width: 12px;
+      min-width: 12px;
+      height: 12px;
+      min-height: 12px;
+      border-radius: 50%;
+      background-color: var(--warning-content-default);
+    }
+
+    .ok {
+      background-color: var(--success-content-default);
+    }
   }
 
-  .appMenuBody {
+  .body {
     position: relative;
-    width: 100%;
-    height: calc(100% - var(--app-menu-header-heigh));
-    overflow: hidden;
-    padding: var(--spacing-m) 0 64px;
+    height: 100%;
+    padding: var(--spacing-s);
+
+    .item {
+      width: calc(100% - var(--spacing-s));
+      margin-bottom: var(--spacing-xs);
+    }
   }
 
-  .logout {
-    position: absolute;
-    left: var(--spacing-m);
-    width: calc(100% - var(--spacing-l));
-    bottom: var(--spacing-m);
+  .action {
+    display: flex;
+    width: 100%;
+    padding: var(--spacing-s) var(--spacing-s) var(--spacing-m) var(--spacing-s);
+    justify-content: center;
+    align-items: center;
   }
 </style>
