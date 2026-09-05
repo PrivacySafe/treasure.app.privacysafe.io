@@ -51,15 +51,19 @@ export function useSort() {
     return size(record.images);
   }
 
-  function compareValues(aValue: string | number, bValue: string | number): boolean {
-    const isAValueString = typeof aValue === 'string';
-    const isBValueString = typeof aValue === 'string';
-
-    if (!isAValueString && !isBValueString) {
-      return (aValue as number) > (bValue as number);
+  /**
+   * Answers the way a comparator does: negative when `aValue` comes first,
+   * zero when the two are equal. Numbers are compared as numbers, and anything
+   * else as text, ignoring case.
+   */
+  function compareValues(aValue: string | number, bValue: string | number): 0 | 1 | -1 {
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return Math.sign(aValue - bValue) as 0 | 1 | -1;
     }
 
-    return `${aValue}`.toLowerCase() > `${bValue}`.toLowerCase();
+    const a = `${aValue}`.toLowerCase();
+    const b = `${bValue}`.toLowerCase();
+    return (a === b) ? 0 : (a < b ? -1 : 1);
   }
 
   function sortTreasuresTableData(
@@ -67,28 +71,27 @@ export function useSort() {
     b: TreasureRecord,
     field: keyof TreasureRecord,
     direction: 'asc' | 'desc',
-  ) {
+  ): 0 | 1 | -1 {
     if (!['name', 'username'].includes(field as keyof TreasureRecord as string)) {
       return 0;
     }
 
-    const aValue = getRecordFieldValue(a, field);
-    const bValue = getRecordFieldValue(b, field);
+    const order = compareValues(getRecordFieldValue(a, field), getRecordFieldValue(b, field));
+    if (order === 0) {
+      return 0;
+    }
 
-    return compareValues(aValue, bValue) ? (direction === 'desc' ? 1 : -1) : direction === 'desc' ? -1 : 1;
+    return (direction === 'asc' ? order : -order) as 1 | -1;
   }
 
-  function sortTreasuresRecentData(
-    a: TreasureRecord,
-    b: TreasureRecord,
-    field: keyof TreasureRecord,
-    direction: 'asc' | 'desc',
-  ) {
-    if (!['name', 'username'].includes(field as keyof TreasureRecord as string)) {
-      return 0;
-    }
-
-    return direction === 'desc' ? -1 : 1;
+  /**
+   * Recent records arrive in the order they were opened in, and that order is
+   * the whole point of the list - so nothing is reordered here, whichever
+   * direction is asked for. Answering zero keeps them as they came: Array.sort
+   * is stable.
+   */
+  function sortTreasuresRecentData(): 0 {
+    return 0;
   }
 
   return {

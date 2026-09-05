@@ -38,5 +38,7 @@ export function prepareRecordList(
       const isUsernameCompliant = processedUsername.includes(processedSearchText);
       return isResourceCompliant || isNameCompliant || isUsernameCompliant;
     })
-    .sort((a, b) => (sortTreasuresTableData ? sortTreasuresTableData(a, b, 'name', 'desc') : 0));
+    // Ascending: the list reads A to Z. The table asks for its own direction,
+    // which the user picks in its header.
+    .sort((a, b) => (sortTreasuresTableData ? sortTreasuresTableData(a, b, 'name', 'asc') : 0));
 }

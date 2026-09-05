@@ -77,7 +77,7 @@ export async function checkFolderSyncState({
   emitEvent: (event: TreasureEvent) => void;
 }) {
   try {
-    const folderSyncStatus = await fs.v?.sync?.status('');
+    const folderSyncStatus = await fs.v?.sync?.status(path);
     // console.log(`🔔 CHECK SYNC [${path || 'ROOT'}] => ${folderSyncStatus ? JSON.stringify(folderSyncStatus) : '👎'}`);
     if (folderSyncStatus) {
       switch (folderSyncStatus.state) {
@@ -115,42 +115,58 @@ export async function checkSyncFsState({
   fs,
   fileSrv,
   emitEvent,
+  onProgress,
 }: {
   fs: web3n.files.WritableFS;
   fileSrv: TreasureFileSrv;
   emitEvent: (event: TreasureEvent) => void;
+  onProgress?: (processed: number, total: number, itemPath: string) => void;
 }) {
   try {
     const rootFolderList = await fs.listFolder('');
-    for (const entity of rootFolderList) {
-      const { name, isFile } = entity;
-
-      if (isFile) {
-        await checkItemSyncState({
-          path: name,
-          fs,
-          fileSrv,
-          emitEvent,
-        });
-      }
+    let imagesFolderList: web3n.files.ListingEntry[] = [];
+    if (await fs.checkFolderPresence(IMAGES_FOLDER)) {
+      imagesFolderList = await fs.listFolder(IMAGES_FOLDER);
     }
 
-    const imagesFolderList = await fs.listFolder(IMAGES_FOLDER);
-    for (const entity of imagesFolderList) {
-      const { name, isFile } = entity;
+    const rootFiles = rootFolderList.filter(e => e.isFile);
+    const imageFiles = imagesFolderList.filter(e => e.isFile);
+    const totalItems = rootFiles.length + imageFiles.length + 2;
+    let processed = 0;
 
-      if (isFile) {
-        await checkItemSyncState({
-          path: `${IMAGES_FOLDER}/${name}`,
-          fs,
-          fileSrv,
-          emitEvent,
-        });
-      }
+    for (const entity of rootFiles) {
+      const { name } = entity;
+      await checkItemSyncState({
+        path: name,
+        fs,
+        fileSrv,
+        emitEvent,
+      });
+      processed++;
+      onProgress?.(processed, totalItems, name);
+    }
+
+    for (const entity of imageFiles) {
+      const { name } = entity;
+      const itemPath = `${IMAGES_FOLDER}/${name}`;
+      await checkItemSyncState({
+        path: itemPath,
+        fs,
+        fileSrv,
+        emitEvent,
+      });
+      processed++;
+      onProgress?.(processed, totalItems, itemPath);
     }
 
     await checkFolderSyncState({ path: IMAGES_FOLDER, fs, emitEvent });
+    processed++;
+    onProgress?.(processed, totalItems, IMAGES_FOLDER);
+
     await checkFolderSyncState({ path: '', fs, emitEvent });
+    processed++;
+    onProgress?.(processed, totalItems, 'root');
+
     emitEvent({ event: 'update:records' });
   } catch (err) {
     w3n.log('error', '🔥 Error while initial checking sync state. ', err);

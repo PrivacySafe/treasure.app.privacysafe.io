@@ -288,6 +288,7 @@
     .row {
       position: relative;
       width: 100%;
+      padding-left: 2px;
       margin-bottom: var(--spacing-s);
     }
 

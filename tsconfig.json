@@ -27,6 +27,14 @@
       "@deno/*": ["./src-deno/*"]
     }
   },
-  "include": ["./vite.config.ts", "./src/**/*", "./shared/**/*", "./src-deno/**/*", "./@types/**/*"],
+  "include": [
+    "./vite.config.ts",
+    "./vitest.config.ts",
+    "./src/**/*",
+    "./shared/**/*",
+    "./src-deno/**/*",
+    "./tests/unit/**/*",
+    "./@types/**/*"
+  ],
   "exclude": ["./node_modules", "./public", "./app"]
 }

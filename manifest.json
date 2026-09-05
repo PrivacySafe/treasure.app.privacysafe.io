@@ -1,7 +1,7 @@
 {
   "name": "Treasure",
   "appDomain": "treasure.app.privacysafe.io",
-  "version": "0.2.1",
+  "version": "0.2.3",
   "description": "The app for storing passwords securely.",
   "icon": "logo.png",
 
@@ -13,8 +13,7 @@
       "formFactor": [ "desktop", "tablet" ],
       "capsRequested": {
         "apps": "opener",
-        "logout": "all",
-        "log": "all",
+        "logToPlatform": true,
         "mailerid": true,
         "keyrings": "all",
         "shell": {
@@ -30,9 +29,7 @@
         "storage": {
           "appFS": "default"
         },
-        "appRPC": [
-          "AppTreasureInternal"
-        ],
+        "appRPC": ["AppTreasureInternal"],
         "connectivity": "check"
       },
       "windowOpts": {
@@ -50,8 +47,7 @@
       "formFactor": "phone",
       "capsRequested": {
         "apps": "opener",
-        "logout": "all",
-        "log": "all",
+        "logToPlatform": true,
         "mailerid": true,
         "keyrings": "all",
         "shell": {
@@ -67,9 +63,7 @@
         "storage": {
           "appFS": "default"
         },
-        "appRPC": [
-          "AppTreasureInternal"
-        ],
+        "appRPC": ["AppTreasureInternal"],
         "connectivity": "check"
       }
     },
@@ -86,7 +80,7 @@
       },
       "runtime": "deno",
       "capsRequested": {
-        "log": "all",
+        "logToPlatform": true,
         "mailerid": true,
         "mail": {
           "preflightsTo": "all"

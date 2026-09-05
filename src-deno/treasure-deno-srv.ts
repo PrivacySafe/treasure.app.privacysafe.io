@@ -25,10 +25,16 @@ import { syncUpload } from './utils/sync-upload.ts';
 import { checkServerConnection } from './utils/check-server-connection.ts';
 import { treasureFileSrv } from './treasure-file-srv.ts';
 import { treasureSyncSrv } from './treasure-sync-srv.ts';
+import { treasureBackupSrv } from './treasure-backup-srv.ts';
 import { handleFolderChangeSyncStatus } from './utils/handle-folder-change-sync-status.ts';
 import { handleFileChangeSyncStatus } from './utils/handle-file-change-sync-status.ts';
 import { checkSyncFsState } from './utils/check-sync-fs-state.ts';
-import type { TreasureCardRecord, TreasureEvent, TreasureGroup, TreasureRecord } from '../shared/@types/common.types.ts';
+import type {
+  TreasureCardRecord,
+  TreasureEvent,
+  TreasureGroup,
+  TreasureRecord,
+} from '../shared/@types/common.types.ts';
 import type { TreasureDenoSrv, TreasureDenoSrvInternal } from './srv.types.ts';
 
 async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
@@ -59,6 +65,13 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
     eventsObservers.add(obs);
     return () => eventsObservers.delete(obs);
   }
+
+  const backupSrv = await treasureBackupSrv({
+    fs,
+    fsLocal,
+    fileSrv,
+    emitEvent: emitTreasureEvent,
+  });
 
   await treasureSyncSrv({ fs, fileSrv, emitEvent: emitTreasureEvent });
 
@@ -400,6 +413,11 @@ async function treasureDenoSrv(): Promise<TreasureDenoSrv> {
 
     loadRecentFile: fileSrv.loadRecentFile,
     saveRecentFile,
+
+    createBackupArchive: backupSrv.createBackupArchive,
+    cancelBackupArchive: backupSrv.cancelBackupArchive,
+    restoreBackupArchive: backupSrv.restoreBackupArchive,
+
     loadImage,
     saveImage,
     deleteImages,
@@ -434,6 +452,9 @@ treasureDenoSrv()
       'getRecord',
       'getRecordSyncStatus',
       'getAllRecords',
+      'createBackupArchive',
+      'cancelBackupArchive',
+      'restoreBackupArchive',
       'initial',
     ]);
     srvWrapInternal.exposeObservableMethods<Pick<TreasureDenoSrv, 'watchEvent'>>(srv, ['watchEvent']);

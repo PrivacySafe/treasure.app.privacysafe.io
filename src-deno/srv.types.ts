@@ -14,7 +14,11 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import type { TreasureEvent, TreasureGroup, TreasureRecord } from '../shared/@types/common.types.ts';
+import type {
+  TreasureEvent,
+  TreasureGroup,
+  TreasureRecord,
+} from '../shared/@types/common.types.ts';
 
 export interface TreasureDenoSrv {
   emitTreasureEvent: (event: TreasureEvent) => void;
@@ -25,6 +29,15 @@ export interface TreasureDenoSrv {
 
   loadRecentFile: () => Promise<string[]>;
   saveRecentFile: (data: string[]) => Promise<void>;
+
+  /**
+   * With `forEncryption` the archive comes back without its metadata file: the
+   * gui encrypts it and puts the metadata into the container around it.
+   */
+  createBackupArchive: (opts?: { forEncryption?: boolean }) => Promise<Uint8Array>;
+  cancelBackupArchive: () => Promise<boolean>;
+  /** Takes the archive already decrypted by the gui, when it was protected. */
+  restoreBackupArchive: (archiveBytes: Uint8Array) => Promise<boolean>;
 
   loadImage: (imageId: string) => Promise<Uint8Array | undefined>;
   saveImage: (data: { bytes: Uint8Array; id?: string }) => Promise<string>;

@@ -209,6 +209,10 @@
       padding: 0 var(--spacing-m);
       justify-content: stretch;
       align-items: center;
+
+      .search {
+        flex-grow: 1;
+      }
     }
 
     .groupSelectorBlock {

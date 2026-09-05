@@ -37,6 +37,9 @@ export async function initializeServices() {
       'getRecord',
       'getRecordSyncStatus',
       'getAllRecords',
+      'createBackupArchive',
+      'cancelBackupArchive',
+      'restoreBackupArchive',
       'initial',
     ]) as TreasureDenoSrvInternal;
     console.log('🔷 TREASURE DENO SERVICE IS INITIALIZED');

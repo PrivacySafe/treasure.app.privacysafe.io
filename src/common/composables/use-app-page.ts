@@ -14,13 +14,16 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import { onBeforeMount } from 'vue';
+import { inject, onBeforeMount } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
+import { DIALOGS_KEY, type DialogsPlugin } from '@v1nt1248/3nclient-lib/plugins';
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
 import { appTreasureDenoSrv } from '@/common/services/service-provider';
 import { useAppStore } from '@/common/stores/app.store';
 import { useSyncStore } from '@/common/stores/sync.store';
 import { useRecordStore } from '@/common/stores/record.store';
+import { useBackupRestore } from '@/common/composables/use-backup-restore';
 import { SystemSettings } from '@/common/utils';
 import type { Ui3nResizeCbArg } from '@v1nt1248/3nclient-lib';
 import type { TreasureDenoSrv } from '@deno/srv.types';
@@ -33,8 +36,12 @@ import type {
   TreasureRecord,
   TreasureUpdateEvent,
 } from '@shared/@types';
+import BackupCreatingDialog from '@/common/components/dialogs/backup-creating-dialog.vue';
 
 export function useAppPage() {
+  const { t } = useI18n();
+  const dialog = inject<DialogsPlugin>(DIALOGS_KEY);
+
   const appStore = useAppStore();
   const {
     getAppVersion,
@@ -45,8 +52,12 @@ export function useAppPage() {
     setLang,
     setColorTheme,
     setCustomLogo,
+    onBackupProgress,
+    onRestoreProgress,
   } = appStore;
   const { appVersion, commonLoading, customLogoSrc, user, connectivityStatus } = storeToRefs(appStore);
+
+  const { askBackupPassphrase, runRestoreWorkflow } = useBackupRestore();
 
   const syncStore = useSyncStore();
   const { isSyncRunning } = storeToRefs(syncStore);
@@ -75,6 +86,44 @@ export function useAppPage() {
 
   function exitApp() {
     w3n.closeSelf();
+  }
+
+  async function runMenuAction(event: 'exit' | 'make-backup' | 'upload-backup') {
+    switch (event) {
+      case 'exit': {
+        exitApp();
+        break;
+      }
+
+      case 'make-backup': {
+        // The passphrase is settled before the work starts: the archive is
+        // packed and encrypted in one pass, with nothing to ask for afterwards.
+        const choice = await askBackupPassphrase();
+        if (!choice) {
+          break;
+        }
+
+        await dialog?.$openDialog(BackupCreatingDialog, {
+          passphrase: choice.passphrase,
+          dialogProps: {
+            icon: 'outline-file-download',
+            title: t('backup.create.dialogTitle'),
+            cssStyle: { width: '570px', maxWidth: '95%', borderRadius: '16px' },
+            hideCloseButton: true,
+            confirmButton: false,
+            cancelButton: false,
+          },
+        });
+        break;
+      }
+
+      case 'upload-backup': {
+        await runRestoreWorkflow();
+        break;
+      }
+
+      // no default
+    }
   }
 
   onBeforeMount(async () => {
@@ -155,6 +204,16 @@ export function useAppPage() {
             break;
           }
 
+          case 'backup': {
+            onBackupProgress(payload);
+            break;
+          }
+
+          case 'restore': {
+            onRestoreProgress(payload);
+            break;
+          }
+
           // no default
         }
       },
@@ -173,8 +232,10 @@ export function useAppPage() {
     connectivityStatus,
     isSyncRunning,
 
+    t,
     onResize,
     openDashboard,
+    runMenuAction,
     exitApp,
   };
 }

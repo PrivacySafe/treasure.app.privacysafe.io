@@ -29,15 +29,21 @@
     isMenuOpen: boolean;
     user: string;
     connectivityStatus: string;
-    appExit?: () => void;
   }>();
   const emits = defineEmits<{
     (event: 'update:modelValue', value: boolean): void;
+    (event: 'action', value: 'exit' | 'make-backup' | 'upload-backup'): void;
   }>();
 
   const route = useRoute();
   const router = useRouter();
   const { t } = useI18n();
+
+  const menuItems = [
+    { id: 'make-backup', icon: 'outline-file-download', label: t('app.menu.makeBackup') },
+    { id: 'upload-backup', icon: 'outline-file-upload', label: t('app.menu.uploadBackup') },
+    { id: 'exit', icon: 'round-logout', label: t('app.menu.exit') },
+  ];
 
   const recordStore = useRecordStore();
   const { sortedGroupsAll } = storeToRefs(recordStore);
@@ -47,6 +53,26 @@
   async function selectGroup(group: TreasureGroup) {
     await router.push({ query: { group: group.id } });
     emits('update:modelValue', false);
+  }
+
+  function onMenuItemClick(id: string) {
+    emits('update:modelValue', false);
+
+    switch (id) {
+      case 'exit':
+        emits('action', 'exit');
+        break;
+
+      case 'make-backup':
+        emits('action', 'make-backup');
+        break;
+
+      case 'upload-backup':
+        emits('action', 'upload-backup');
+        break;
+
+      // no-default
+    }
   }
 </script>
 
@@ -95,13 +121,18 @@
     </template>
 
     <template #footer>
-      <div :class="$style.action">
+      <div :class="$style.actions">
         <ui3n-button
+          v-for="item in menuItems"
+          :key="item.id"
+          type="outline"
           size="large"
+          :icon="item.icon"
+          icon-position="left"
           block
-          @click="() => appExit && appExit()"
+          @click="() => onMenuItemClick(item.id)"
         >
-          {{ t('app.exit') }}
+          {{ item.label }}
         </ui3n-button>
       </div>
     </template>
@@ -168,11 +199,13 @@
     }
   }
 
-  .action {
+  .actions {
     display: flex;
+    flex-direction: column;
     width: 100%;
     padding: var(--spacing-s) var(--spacing-s) var(--spacing-m) var(--spacing-s);
-    justify-content: center;
-    align-items: center;
+    justify-content: flex-end;
+    align-items: stretch;
+    row-gap: var(--spacing-s);
   }
 </style>

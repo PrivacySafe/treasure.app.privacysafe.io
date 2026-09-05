@@ -23,7 +23,7 @@
 
   const { t } = useI18n();
 
-  const { appVersion, commonLoading, user, connectivityStatus, isSyncRunning, exitApp } = useAppPage();
+  const { appVersion, commonLoading, user, connectivityStatus, isSyncRunning, runMenuAction } = useAppPage();
 
   const isMenuOpen = ref(false);
 </script>
@@ -36,7 +36,7 @@
           :is-menu-open="isMenuOpen"
           :user="user || ''"
           :connectivity-status="connectivityStatus"
-          :app-exit="exitApp"
+          @action="ev => runMenuAction(ev)"
           @update:model-value="ev => (isMenuOpen = ev)"
         />
 

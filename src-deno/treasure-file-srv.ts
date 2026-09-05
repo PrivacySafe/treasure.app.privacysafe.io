@@ -66,12 +66,18 @@ export async function treasureFileSrv(
   }
 
   async function updateFile(data: TreasureRecord | TreasureGroup[], fileName?: string): Promise<void> {
-    if (!(data as TreasureRecord).id && !fileName) {
+    // A list of groups has no id of its own and always lives in one file, so
+    // the name can be left out for it. A record is addressed by its id, and
+    // without either there is nothing to write to.
+    const fileNameUsed = Array.isArray(data)
+      ? fileName || GROUPS_FILE_NAME
+      : fileName || (data as TreasureRecord).id;
+
+    if (!fileNameUsed) {
       w3n.log('error', 'The filename argument is missing');
       throw new Error('The filename argument is missing');
     }
 
-    const fileNameUsed = fileName || (data as TreasureRecord).id || GROUPS_FILE_NAME;
     await fileProc.startOrChain(async () => fs.writeJSONFile(fileNameUsed, data));
   }
 

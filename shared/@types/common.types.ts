@@ -123,6 +123,54 @@ export interface TreasureRecordsUpdateEvent {
   event: 'update:records';
 }
 
+/** Reason an archive cannot be used. Mapped to a message in the gui. */
+export type BackupArchiveError =
+  | 'corrupted_archive'
+  | 'foreign_archive'
+  | 'passphrase_required'
+  | 'wrong_passphrase'
+  | 'encryption_unsupported';
+
+export interface BackupValidationResult {
+  valid: boolean;
+  compatible: boolean;
+  appVersion: string;
+  archiveVersion?: string;
+  formatVersion?: number;
+  /** Whether the archive the user picked was passphrase-protected. */
+  encrypted?: boolean;
+  recordsCount?: number;
+  groupsCount?: number;
+  warningReason?: 'missing_metadata' | 'invalid_metadata' | 'version_mismatch';
+  error?: BackupArchiveError;
+}
+
+export interface BackupProgress {
+  stage: 'start' | 'scanning' | 'compressing' | 'encrypting' | 'saving' | 'completed' | 'error' | 'cancelled';
+  totalFiles: number;
+  processedFiles: number;
+  currentFile?: string;
+  percent: number;
+}
+
+export interface TreasureBackupEvent {
+  event: 'backup';
+  payload: BackupProgress;
+}
+
+export interface RestoreProgress {
+  stage: 'unpacking' | 'decrypting' | 'restoring' | 'syncing' | 'completed' | 'error';
+  totalFiles: number;
+  processedFiles: number;
+  currentFile?: string;
+  percent: number;
+}
+
+export interface TreasureRestoreEvent {
+  event: 'restore';
+  payload: RestoreProgress;
+}
+
 export type TreasureEvent =
   | TreasureSyncStartEvent
   | TreasureSyncUpdateEvent
@@ -131,4 +179,6 @@ export type TreasureEvent =
   | TreasureRemoveEvent
   | TreasureUpdateEvent
   | TreasureGroupUpdateEvent
-  | TreasureRecordsUpdateEvent;
+  | TreasureRecordsUpdateEvent
+  | TreasureBackupEvent
+  | TreasureRestoreEvent;

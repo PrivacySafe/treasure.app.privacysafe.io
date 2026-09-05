@@ -15,12 +15,8 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 -->
 <script setup lang="ts">
-  import { useI18n } from 'vue-i18n';
   import {
-    Ui3nButton,
     Ui3nDialogProvider,
-    Ui3nIcon,
-    Ui3nMenu,
     Ui3nProgressCircular,
     Ui3nProgressLinear,
     Ui3nResize,
@@ -29,11 +25,11 @@
   import { useAppPage } from '@/common/composables/use-app-page';
   import prLogo from '@/assets/images/privacysafe-logo.svg';
   import ContactIcon from '@/common/components/ui/contact-icon.vue';
+  import AppMenu from '@/desktop/components/app-menu.vue';
 
   const vUi3nResize = Ui3nResize;
   const vUi3nRipple = Ui3nRipple;
 
-  const { t } = useI18n();
   const {
     appVersion,
     commonLoading,
@@ -41,9 +37,10 @@
     user,
     connectivityStatus,
     isSyncRunning,
+    t,
     onResize,
     openDashboard,
-    exitApp,
+    runMenuAction,
   } = useAppPage();
 </script>
 
@@ -94,31 +91,7 @@
           />
         </div>
 
-        <ui3n-menu
-          position-strategy="fixed"
-          :offset-y="4"
-        >
-          <ui3n-button
-            type="icon"
-            color="var(--color-bg-block-primary-default)"
-            icon="round-more-vert"
-            icon-size="24"
-            icon-color="var(--color-icon-control-secondary-default)"
-            :class="$style.toolbarBtn"
-          />
-
-          <template #menu>
-            <div :class="$style.menu">
-              <div
-                :class="$style.menuItem"
-                @click="exitApp"
-              >
-                <ui3n-icon icon="round-logout" />
-                {{ t('app.exit') }}
-              </div>
-            </div>
-          </template>
-        </ui3n-menu>
+        <app-menu @action="ev => runMenuAction(ev)" />
       </div>
 
       <div
@@ -245,47 +218,6 @@
         cursor: pointer;
         overflow: hidden;
         border-radius: 50%;
-      }
-
-      .toolbarBtn {
-        &:hover {
-          div {
-            color: var(--color-text-control-accent-default);
-          }
-        }
-      }
-
-      .menu {
-        position: relative;
-        padding: 2px 0;
-        background-color: var(--color-bg-control-secondary-default);
-        width: max-content;
-        border-radius: var(--spacing-xs);
-        @include mixins.elevation(1);
-
-        .menuItem {
-          position: relative;
-          width: 100px;
-          height: var(--spacing-l);
-          padding: 0 var(--spacing-s);
-          font-size: var(--font-14);
-          font-weight: 500;
-          color: var(--color-text-control-primary-default);
-          display: flex;
-          justify-content: flex-start;
-          align-items: center;
-          column-gap: var(--spacing-xs);
-          cursor: pointer;
-
-          &:hover {
-            background-color: var(--color-bg-control-primary-hover);
-            color: var(--color-text-control-accent-default);
-
-            div {
-              color: var(--color-text-control-accent-default);
-            }
-          }
-        }
       }
     }
 

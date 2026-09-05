@@ -16,9 +16,63 @@
 */
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import type { Nullable } from '@v1nt1248/3nclient-lib';
-import type { AppConfig, AppConfigs, AvailableLanguage, AvailableColorTheme } from '@shared/@types';
 import { blobFromDataURL, SystemSettings } from '@/common/utils';
+import { packEncryptedContainer } from '@/common/utils/backup-container';
+import { appTreasureDenoSrv } from '@/common/services/service-provider';
+import { backupFileName } from '@shared/utils/backup-archive';
+import type { Ui3nNotificationProps, Nullable } from '@v1nt1248/3nclient-lib';
+import type {
+  AppConfig,
+  AppConfigs,
+  AvailableLanguage,
+  AvailableColorTheme,
+  BackupProgress,
+  RestoreProgress,
+} from '@shared/@types';
+
+function isBackupCancelledError(err: unknown): boolean {
+  const errorObj = err as (Error & { cause?: unknown }) | undefined;
+  const combined = [
+    errorObj?.name,
+    errorObj?.message,
+    errorObj?.stack,
+    typeof errorObj?.cause === 'string' ? errorObj.cause : (errorObj?.cause as Error | undefined)?.message,
+    (errorObj?.cause as Error | undefined)?.stack,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return Boolean(
+    errorObj?.name === 'AbortError' ||
+      /cancelled|aborterror|aborted/i.test(combined),
+  );
+}
+
+async function saveBackupArchiveToFile(
+  archiveBytes: Uint8Array,
+  appVersion: string,
+  t: (key: string, options?: Record<string, string>) => string,
+): Promise<{ saved: boolean; fileName?: string }> {
+  const defaultFileName = backupFileName(new Date(), appVersion);
+
+  if (!w3n.shell?.fileDialogs?.saveFileDialog) {
+    return { saved: false };
+  }
+
+  const file = await w3n.shell.fileDialogs.saveFileDialog(
+    t('backup.create.fileDialogTitle'),
+    t('backup.create.fileDialogBtn'),
+    defaultFileName,
+    { filters: [{ name: 'ZIP Archive', extensions: ['zip'] }] },
+  );
+
+  if (!file) {
+    return { saved: false };
+  }
+
+  await file.writeBytes(archiveBytes);
+  return { saved: true, fileName: file.name || defaultFileName };
+}
 
 export const useAppStore = defineStore('app', () => {
   const appVersion = ref<string>('');
@@ -34,6 +88,9 @@ export const useAppStore = defineStore('app', () => {
   // @ts-ignore
   const operatingSystem = ref<'macos' | 'linux' | 'windows'>(navigator.userAgentData?.platform.toLowerCase());
   const commonLoading = ref<boolean>(false);
+
+  const backupProgress = ref<BackupProgress | null>(null);
+  const restoreProgress = ref<RestoreProgress | null>(null);
 
   async function getAppVersion() {
     appVersion.value = await w3n.myVersion();
@@ -104,6 +161,145 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
+  function onBackupProgress(progress: BackupProgress | null) {
+    backupProgress.value = progress;
+  }
+
+  function onRestoreProgress(progress: RestoreProgress | null) {
+    restoreProgress.value = progress;
+  }
+
+  function showBackupCancellingNotice(
+    t: (key: string, options?: Record<string, string>) => string,
+    $createNotice: (params: Ui3nNotificationProps) => void,
+  ) {
+    if (backupProgress.value === null) {
+      return;
+    }
+
+    $createNotice({
+      type: 'warning',
+      content: t('backup.create.cancel'),
+      duration: 4000,
+    });
+
+    onBackupProgress(null);
+  }
+
+  function showBackupWarningNotice(text: string, $createNotice: (params: Ui3nNotificationProps) => void) {
+    $createNotice({
+      type: 'info',
+      content: text,
+      duration: 4000,
+    });
+
+    onBackupProgress(null);
+  }
+
+  async function cancelBackup(
+    t: (key: string, options?: Record<string, string>) => string,
+    $createNotice: (params: Ui3nNotificationProps) => void,
+  ): Promise<void> {
+    try {
+      await appTreasureDenoSrv.cancelBackupArchive?.();
+    } catch (err) {
+      console.error('Error cancelling backup archive: ', err);
+    } finally {
+      showBackupCancellingNotice(t, $createNotice);
+    }
+  }
+
+  function handleBackupError(
+    err: unknown,
+    t: (key: string, options?: Record<string, string>) => string,
+    $createNotice: (params: Ui3nNotificationProps) => void,
+  ): boolean {
+    if (isBackupCancelledError(err)) {
+      w3n.log?.('info', 'Backup creation was cancelled');
+      showBackupCancellingNotice(t, $createNotice);
+      return false;
+    }
+
+    w3n.log('error', 'Backup creation failed: ', err);
+
+    onBackupProgress({
+      stage: 'error',
+      totalFiles: 0,
+      processedFiles: 0,
+      percent: 0,
+    });
+
+    $createNotice({
+      type: 'error',
+      content: t('backup.create.error'),
+      duration: 4000,
+    });
+
+    setTimeout(() => {
+      onBackupProgress(null);
+    }, 3000);
+
+    return false;
+  }
+
+  async function runBackupWorkflow({
+    passphrase,
+    t,
+    $createNotice,
+  }: {
+    passphrase?: string;
+    t: (key: string, options?: Record<string, string>) => string;
+    $createNotice: (params: Ui3nNotificationProps) => void;
+  }): Promise<boolean | undefined> {
+    try {
+      // With a passphrase the service leaves the metadata file out: it goes
+      // into the container built here, where it stays readable without a key.
+      const packedBytes = await appTreasureDenoSrv.createBackupArchive({
+        forEncryption: !!passphrase,
+      });
+      if (!packedBytes) {
+        showBackupWarningNotice(t('backup.create.warning'), $createNotice);
+        return false;
+      }
+
+      let archiveBytes = packedBytes;
+      if (passphrase) {
+        onBackupProgress({
+          stage: 'encrypting',
+          totalFiles: 1,
+          processedFiles: 1,
+          percent: 100,
+        });
+
+        archiveBytes = await packEncryptedContainer(packedBytes, passphrase, appVersion.value);
+      }
+
+      onBackupProgress({
+        stage: 'saving',
+        totalFiles: 1,
+        processedFiles: 1,
+        percent: 100,
+      });
+
+      const { saved, fileName } = await saveBackupArchiveToFile(archiveBytes, appVersion.value, t);
+      if (!saved) {
+        showBackupCancellingNotice(t, $createNotice);
+        return false;
+      }
+
+      $createNotice({
+        type: 'success',
+        content: t('backup.create.success', { filename: fileName! }),
+        duration: 4000,
+      });
+
+      onBackupProgress(null);
+      return true;
+    } catch (err: unknown) {
+      return handleBackupError(err, t, $createNotice);
+    }
+  }
+
   return {
     appVersion,
     operatingSystem,
@@ -114,6 +310,13 @@ export const useAppStore = defineStore('app', () => {
     customLogoSrc,
     appWindowSize,
     commonLoading,
+    backupProgress,
+    restoreProgress,
+
+    runBackupWorkflow,
+    cancelBackup,
+    onBackupProgress,
+    onRestoreProgress,
 
     getAppVersion,
     getUser,
