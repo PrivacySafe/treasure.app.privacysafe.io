@@ -14,17 +14,22 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-import { inject, onBeforeMount } from 'vue';
+import { inject, onBeforeMount, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { storeToRefs } from 'pinia';
-import { DIALOGS_KEY, type DialogsPlugin } from '@v1nt1248/3nclient-lib/plugins';
+import {
+  DIALOGS_KEY,
+  THEME_KEY,
+  type DialogsPlugin,
+  type ThemePlugin,
+} from '@v1nt1248/3nclient-lib/plugins';
 import { makeServiceCaller } from '@shared/ipc/ipc-service-caller';
 import { appTreasureDenoSrv } from '@/common/services/service-provider';
 import { useAppStore } from '@/common/stores/app.store';
 import { useSyncStore } from '@/common/stores/sync.store';
 import { useRecordStore } from '@/common/stores/record.store';
 import { useBackupRestore } from '@/common/composables/use-backup-restore';
-import { SystemSettings } from '@/common/utils';
+import { getActiveTheme, SystemSettings } from '@/common/utils';
 import type { Ui3nResizeCbArg } from '@v1nt1248/3nclient-lib';
 import type { TreasureDenoSrv } from '@deno/srv.types';
 import type {
@@ -41,6 +46,7 @@ import BackupCreatingDialog from '@/common/components/dialogs/backup-creating-di
 export function useAppPage() {
   const { t } = useI18n();
   const dialog = inject<DialogsPlugin>(DIALOGS_KEY);
+  const { setTheme } = inject<ThemePlugin>(THEME_KEY)!;
 
   const appStore = useAppStore();
   const {
@@ -55,7 +61,12 @@ export function useAppPage() {
     onBackupProgress,
     onRestoreProgress,
   } = appStore;
-  const { appVersion, commonLoading, customLogoSrc, user, connectivityStatus } = storeToRefs(appStore);
+  const { appVersion, colorTheme, commonLoading, customLogoSrc, user, connectivityStatus } =
+    storeToRefs(appStore);
+
+  // The launcher owns the theme; the store only mirrors it, and the plugin puts
+  // it on the document.
+  watch(colorTheme, id => setTheme(id), { immediate: true });
 
   const { askBackupPassphrase, runRestoreWorkflow } = useBackupRestore();
 
@@ -142,7 +153,7 @@ export function useAppPage() {
       next: appConfig => {
         const { lang, colorTheme, customLogo } = appConfig;
         setLang(lang);
-        setColorTheme(colorTheme);
+        setColorTheme(getActiveTheme(colorTheme));
         setCustomLogo(customLogo);
       },
     });

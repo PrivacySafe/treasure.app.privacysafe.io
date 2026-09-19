@@ -23,6 +23,7 @@ import {
   notifications,
   storeDialogs,
   storeNotifications,
+  theme,
   vueBus,
   storeVueBus,
 } from '@v1nt1248/3nclient-lib/plugins';
@@ -56,6 +57,9 @@ initializeServices()
     dayjs.extend(relativeTime);
 
     app
+      // The launcher decides the theme; this is only the value shown until its
+      // settings have been read.
+      .use(theme, { theme: 'dark' })
       .use(pinia)
       .use(i18n)
       .use(vueBus)

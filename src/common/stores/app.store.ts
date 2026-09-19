@@ -16,16 +16,16 @@
 */
 import { ref } from 'vue';
 import { defineStore } from 'pinia';
-import { blobFromDataURL, SystemSettings } from '@/common/utils';
+import { blobFromDataURL, getActiveTheme, SystemSettings } from '@/common/utils';
 import { packEncryptedContainer } from '@/common/utils/backup-container';
 import { appTreasureDenoSrv } from '@/common/services/service-provider';
 import { backupFileName } from '@shared/utils/backup-archive';
 import type { Ui3nNotificationProps, Nullable } from '@v1nt1248/3nclient-lib';
+import type { ThemeId } from '@v1nt1248/3nclient-lib/plugins';
 import type {
   AppConfig,
   AppConfigs,
   AvailableLanguage,
-  AvailableColorTheme,
   BackupProgress,
   RestoreProgress,
 } from '@shared/@types';
@@ -79,7 +79,7 @@ export const useAppStore = defineStore('app', () => {
   const connectivityStatus = ref<string>('offline');
   const user = ref<Nullable<string>>(null);
   const lang = ref<AvailableLanguage>('en');
-  const colorTheme = ref<AvailableColorTheme>('dark2');
+  const colorTheme = ref<ThemeId>('dark');
   const customLogoSrc = ref<string>();
   const appWindowSize = ref<{ width: number; height: number }>({
     width: 0,
@@ -120,18 +120,10 @@ export const useAppStore = defineStore('app', () => {
     lang.value = value;
   }
 
-  function setColorTheme(theme: AvailableColorTheme) {
-    const prevColorThemeCssClass = `${colorTheme.value}-theme`;
+  // Only the value is kept here. Putting it on the document is the job of the
+  // library's theme plugin, which the app view drives off this ref.
+  function setColorTheme(theme: ThemeId) {
     colorTheme.value = theme;
-    const curColorThemeCssClass = `${colorTheme.value}-theme`;
-
-    const htmlEl = document.querySelector('html');
-    if (!htmlEl) {
-      return;
-    }
-
-    htmlEl.classList.remove(prevColorThemeCssClass);
-    htmlEl.classList.add(curColorThemeCssClass);
   }
 
   async function setCustomLogo(dataURL: AppConfig['customLogo']): Promise<void> {
@@ -152,7 +144,7 @@ export const useAppStore = defineStore('app', () => {
       const config = await SystemSettings.makeResourceReader();
       const { lang, colorTheme, customLogo } = await config.getAll();
       setLang(lang);
-      setColorTheme(colorTheme);
+      setColorTheme(getActiveTheme(colorTheme));
       await setCustomLogo(customLogo);
 
       return config;

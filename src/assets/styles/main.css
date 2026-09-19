@@ -80,6 +80,11 @@ div {
   font-family: Inter, system-ui, sans-serif;
 }
 
+/* The notifications plugin mounts its container outside the app root, so the
+   font rule on #main does not reach it. */
+#ui3n-notifications-container {
+  font-family: Inter, system-ui, sans-serif;
+}
 
 .app-init {
   position: relative;

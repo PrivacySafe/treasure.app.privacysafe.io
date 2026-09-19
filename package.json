@@ -1,6 +1,6 @@
 {
   "name": "treasure.app.privacysafe.io",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "type": "module",
   "scripts": {
@@ -20,7 +20,7 @@
     "lint": "pnpm linter && pnpm stylelint"
   },
   "dependencies": {
-    "@v1nt1248/3nclient-lib": "0.3.44",
+    "@v1nt1248/3nclient-lib": "0.3.50",
     "@vueuse/core": "14.4.0",
     "dayjs": "1.11.23",
     "fflate": "0.8.3",

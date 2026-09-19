@@ -15,11 +15,11 @@
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
 import { SingleProc } from '@v1nt1248/3nclient-lib/utils';
+import type { ThemeId } from '@v1nt1248/3nclient-lib/plugins';
 import type {
   AppConfig,
   AppConfigs,
   AvailableLanguage,
-  AvailableColorTheme,
   AppConfigsInternal,
   SettingsJSON,
 } from '@shared/@types';
@@ -27,6 +27,23 @@ import type {
 const resourceName = 'ui-settings';
 const resourceApp = 'launcher.app.privacysafe.io';
 const settingsPath = '/constants/settings.json';
+
+/**
+ * Launcher's settings file on an already installed system still carries theme
+ * ids from before the library renamed them, so every value read from it goes
+ * through here.
+ */
+export function getActiveTheme(value: ThemeId | 'default' | 'dark1' | 'dark2'): ThemeId {
+  if (value === 'default') {
+    return 'light';
+  }
+
+  if (value === 'dark1' || value === 'dark2') {
+    return 'dark';
+  }
+
+  return value;
+}
 
 export class SystemSettings implements AppConfigs, AppConfigsInternal {
   private syncProc: SingleProc | undefined = undefined;
@@ -78,9 +95,9 @@ export class SystemSettings implements AppConfigs, AppConfigsInternal {
     return lang;
   }
 
-  async getCurrentColorTheme(): Promise<AvailableColorTheme> {
+  async getCurrentColorTheme(): Promise<ThemeId> {
     const { colorTheme } = await this.file.readJSON<SettingsJSON>();
-    return colorTheme;
+    return getActiveTheme(colorTheme);
   }
 
   async getSystemFoldersDisplaying(): Promise<boolean> {

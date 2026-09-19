@@ -14,15 +14,15 @@
  You should have received a copy of the GNU General Public License along with
  this program. If not, see <http://www.gnu.org/licenses/>.
 */
-export type AvailableLanguage = 'en';
+import type { ThemeId } from '@v1nt1248/3nclient-lib/plugins';
 
-export type AvailableColorTheme = 'default' | 'dark' | 'dark2';
+export type AvailableLanguage = 'en';
 
 export type ConnectivityStatus = 'offline' | 'online';
 
 export interface AppConfig {
   lang: AvailableLanguage;
-  colorTheme: AvailableColorTheme;
+  colorTheme: ThemeId;
   systemFoldersDisplaying?: boolean;
   customLogo?: string;
 }
@@ -31,14 +31,14 @@ export interface AppConfigsInternal {
   getAll: () => Promise<SettingsJSON>;
   saveSettingsFile: (data: AppConfig) => Promise<void>;
   getCurrentLanguage: () => Promise<AvailableLanguage>;
-  getCurrentColorTheme: () => Promise<AvailableColorTheme>;
+  getCurrentColorTheme: () => Promise<ThemeId>;
   getSystemFoldersDisplaying: () => Promise<boolean>;
   getAllowShowingDevtool: () => Promise<boolean>;
 }
 
 export interface AppConfigs {
   getCurrentLanguage: () => Promise<AvailableLanguage>;
-  getCurrentColorTheme: () => Promise<AvailableColorTheme>;
+  getCurrentColorTheme: () => Promise<ThemeId>;
   getSystemFoldersDisplaying: () => Promise<boolean>;
   getAllowShowingDevtool: () => Promise<boolean>;
   getAll: () => Promise<SettingsJSON>;
@@ -47,7 +47,7 @@ export interface AppConfigs {
 
 export interface SettingsJSON {
   lang: AvailableLanguage;
-  colorTheme: AvailableColorTheme;
+  colorTheme: ThemeId;
   systemFoldersDisplaying: boolean;
   allowShowingDevtool: boolean;
   customLogo: AppConfig['customLogo'];
