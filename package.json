@@ -1,12 +1,12 @@
 {
   "name": "treasure.app.privacysafe.io",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "private": true,
   "type": "module",
   "scripts": {
     "copy-assets": "node scripts/copy-assets.js",
     "dev": "pnpm copy-assets && vite",
-    "build:deno": "bash ci/bundle-deno-code.sh",
+    "build:deno": "bash bundle-deno-code.sh",
     "build:gui": "vue-tsc --noEmit && vite build",
     "build": "pnpm lint && pnpm copy-assets && pnpm build:gui && pnpm build:deno",
     "serve": "vite preview",

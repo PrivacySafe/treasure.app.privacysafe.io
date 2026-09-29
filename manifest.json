@@ -1,16 +1,15 @@
 {
   "name": "Treasure",
   "appDomain": "treasure.app.privacysafe.io",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "The app for storing passwords securely.",
   "icon": "logo.png",
 
   "components": {
-
     "/index.html": {
       "startedBy": "user",
       "runtime": "web-gui",
-      "formFactor": [ "desktop", "tablet" ],
+      "formFactor": ["desktop", "tablet"],
       "capsRequested": {
         "apps": "opener",
         "logToPlatform": true,
@@ -91,7 +90,6 @@
         "connectivity": "check"
       }
     }
-
   },
 
   "launchers": [
@@ -100,7 +98,7 @@
       "icon": "logo.png",
       "description": "The app for storing passwords securely.",
       "component": "/index.html",
-      "formFactor": [ "desktop", "tablet" ]
+      "formFactor": ["desktop", "tablet"]
     },
     {
       "name": "Treasure",
@@ -119,5 +117,4 @@
       "description": "Warms up the treasure app service"
     }
   ]
-
 }

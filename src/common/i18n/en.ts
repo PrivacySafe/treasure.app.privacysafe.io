@@ -161,6 +161,8 @@ export const en = {
           unsupported: 'These are unsupported files: {list}',
           limit: 'The total number of images will exceed the allowed limit. Some new images will not be uploaded.',
         },
+        upload_custom_card_images: 'Select Card Images',
+        upload_images_btn: 'Upload',
       },
     },
     record_type: {
@@ -264,10 +266,12 @@ export const en = {
       fileDialogTitle: 'Select Backup File',
       fileDialogBtn: 'Open',
       confirmTitle: 'Confirm Data Restoration',
-      confirmText: 'Restoring from backup (version {version}) will replace all current passwords, cards, and groups. This action cannot be undone. Do you want to proceed?',
+      confirmText:
+        'Restoring from backup (version {version}) will replace all current passwords, cards, and groups. This action cannot be undone. Do you want to proceed?',
       confirmBtn: 'Restore',
       confirmWarningTitle: 'Compatibility Warning',
-      confirmWarningText: 'The backup archive version ({archiveVersion}) is not fully compatible with the application version ({appVersion}), or metadata is missing. Restoring this archive may damage application data or cause errors. Do you want to proceed at your own risk?',
+      confirmWarningText:
+        'The backup archive version ({archiveVersion}) is not fully compatible with the application version ({appVersion}), or metadata is missing. Restoring this archive may damage application data or cause errors. Do you want to proceed at your own risk?',
       confirmAtOwnRiskBtn: 'Restore at own risk',
       text: {
         unpacking: 'Unpacking and reading archive',

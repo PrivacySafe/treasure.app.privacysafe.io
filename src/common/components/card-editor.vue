@@ -20,8 +20,8 @@
   import isEmpty from 'lodash/isEmpty';
   import size from 'lodash/size';
   import { NOTIFICATIONS_KEY } from '@v1nt1248/3nclient-lib/plugins';
-  import { getFileExtension } from '@v1nt1248/3nclient-lib/utils';
-  import { Ui3nInput, Ui3nInputFile, Ui3nSelector, Ui3nDropFiles } from '@v1nt1248/3nclient-lib';
+  import { getFileExtension, transformWeb3nFileToFile } from '@v1nt1248/3nclient-lib/utils';
+  import { Ui3nInput, Ui3nSelector, Ui3nDropFiles, Ui3nButton } from '@v1nt1248/3nclient-lib';
   import type { ProcessedImage, TreasureCardRecord, TreasureGroup, TreasureRecord } from '@shared/@types';
   import ImagePreview from '@/common/components/image-preview.vue';
   import ImageEditor from '@/common/components/image-editor.vue';
@@ -172,6 +172,45 @@
       immediate: true,
     },
   );
+
+  async function uploadImage() {
+    let files: web3n.files.ReadonlyFile[] | undefined;
+    try {
+      files = await w3n.shell!.fileDialogs!.openFileDialog!(
+        t('recordDialog.form.image.upload_custom_card_images'),
+        t('recordDialog.form.image.upload_images_btn'),
+        true,
+        {
+          filters: [
+            {
+              name: 'Images',
+              extensions: ALLOWED_FILE_TYPES,
+            },
+          ],
+        },
+      );
+    } catch (err) {
+      w3n.log('error', 'Could not open the dialog to select files', err);
+      return;
+    }
+
+    if (!files) {
+      return;
+    }
+
+    try {
+      const selectedImgFiles = ref<File[]>([]);
+
+      for (const file of files) {
+        const fileData = (await transformWeb3nFileToFile(file)) as File;
+        selectedImgFiles.value.push(fileData);
+      }
+
+      onFilesSelect(selectedImgFiles.value);
+    } catch (error) {
+      console.log(error);
+    }
+  }
 </script>
 
 <template>
@@ -219,21 +258,20 @@
       </div>
 
       <div :class="[$style.uploadBlock, mobileMode && $style.uploadBlockMobile]">
-        <ui3n-input-file
+        <div
           v-if="mobileMode"
-          multiple
-          :allowed-file-types="ALLOWED_FILE_TYPES.map((ext: string) => `.${ext}`).join(',')"
-          :disabled="isLoading || ALLOWED_QUANTITY - size(images) <= 0"
-          :class="$style.fileUploaderWrapper"
-          @update:model-value="onFilesSelect"
+          :class="$style.fileUploader"
         >
-          <div :class="$style.fileUploader">
-            <span>{{ t('recordDialog.form.image.upload_area') }}</span>
-            <span :class="$style.imageInfo">
-              {{ t('recordDialog.form.image.info') }}
-            </span>
-          </div>
-        </ui3n-input-file>
+          <ui3n-button
+            type="secondary"
+            @click="uploadImage"
+          >
+            {{ t('recordDialog.form.image.upload_area') }}
+          </ui3n-button>
+          <span :class="$style.imageInfo">
+            {{ t('recordDialog.form.image.info') }}
+          </span>
+        </div>
 
         <ui3n-drop-files
           v-else
@@ -247,14 +285,12 @@
                 {{ t('recordDialog.form.image.info') }}
               </div>
 
-              <ui3n-input-file
-                multiple
-                :allowed-file-types="ALLOWED_FILE_TYPES.map((ext: string) => `.${ext}`).join(',')"
-                :max-mumber-of-files="ALLOWED_QUANTITY"
-                :button-text="t('recordDialog.form.image.upload_btn')"
-                :disabled="isLoading || ALLOWED_QUANTITY - size(images) <= 0"
-                @update:model-value="onFilesSelect"
-              />
+              <ui3n-button
+                type="secondary"
+                @click="uploadImage"
+              >
+                {{ t('recordDialog.form.image.upload_btn') }}
+              </ui3n-button>
             </div>
           </template>
         </ui3n-drop-files>
